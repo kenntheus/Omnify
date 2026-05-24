@@ -10,7 +10,6 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: omnify_secret
@@ -18,10 +17,11 @@ services:
     networks:
       - omnify-network
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017 --quiet
-      interval: 30s
+      test: echo 'db.runCommand("ping").ok' | mongosh --username admin --password omnify_secret --authenticationDatabase admin localhost:27017/omnify --quiet
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 20s
 
   # ─── Backend API ────────────────────────────────────────────
   backend:
@@ -83,16 +83,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${BACKEND_URL:-http://localhost:5000}
-        NEXT_PUBLIC_AI_SERVICE_URL: ${AI_SERVICE_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_URL: http://localhost:5000
+        NEXT_PUBLIC_AI_SERVICE_URL: http://localhost:8000
     container_name: omnify-frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${BACKEND_URL:-http://localhost:5000}
-      NEXT_PUBLIC_AI_SERVICE_URL: ${AI_SERVICE_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_URL: http://localhost:5000
+      NEXT_PUBLIC_AI_SERVICE_URL: http://localhost:8000
     depends_on:
       - backend
     networks:
