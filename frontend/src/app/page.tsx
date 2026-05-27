@@ -90,7 +90,6 @@ export default function LandingPage() {
               <Sparkles size={16} className="text-white" />
             </div>
             <span className="text-xl font-bold text-slate-800">Omnify</span>
-            <span className="hidden sm:block text-xs font-semibold text-brand-teal bg-brand-aqua/50 border border-brand-teal/20 px-2 py-0.5 rounded-full">Beta</span>
           </Link>
 
           {/* Desktop nav */}
@@ -528,7 +527,6 @@ export default function LandingPage() {
             </div>
             {[
               { title: 'Product', links: ['Features', 'Changelog', 'Roadmap'] },
-              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Press'] },
               { title: 'Legal', links: ['Privacy', 'Terms', 'Cookies', 'Security'] },
             ].map(col => (
               <div key={col.title}>
