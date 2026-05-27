@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, Bell, Shield, CreditCard, Palette, Trash2, Save, Camera, Check, Plus, X } from 'lucide-react'
+import { User, Bell, Shield, Palette, Trash2, Save, Camera, Check, Plus, X } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import Badge from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -13,7 +12,6 @@ const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'security', label: 'Security', icon: Shield },
-  { id: 'billing', label: 'Billing', icon: CreditCard },
   { id: 'preferences', label: 'Preferences', icon: Palette },
 ]
 
@@ -228,42 +226,6 @@ export default function SettingsPage() {
                       <p className="text-xs text-red-600 mb-3">This action is permanent and cannot be undone.</p>
                       <Button variant="danger" size="sm" leftIcon={<Trash2 size={14} />}>Delete My Account</Button>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Billing tab */}
-              {activeTab === 'billing' && (
-                <div className="space-y-5">
-                  <h3 className="text-base font-bold text-slate-800">Billing & Subscription</h3>
-                  <div className="p-4 rounded-xl bg-gradient-to-r from-brand-aqua/30 to-brand-frost/60 border border-brand-teal/20">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Badge variant="teal">Free Plan</Badge>
-                        <p className="text-lg font-bold text-slate-800 mt-2">$0 / month</p>
-                        <p className="text-xs text-slate-500 mt-1">10 applications/month · Basic AI features</p>
-                      </div>
-                      <Button leftIcon={<CreditCard size={15} />}>Upgrade to Pro</Button>
-                    </div>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    {[
-                      { plan: 'Pro', price: '$29', features: ['Unlimited applications', 'Advanced AI matching', 'Auto-apply', 'Cover letter generator', 'Priority support'] },
-                      { plan: 'Enterprise', price: '$79', features: ['Everything in Pro', 'Team management', 'Custom integrations', 'API access', 'Dedicated support'] },
-                    ].map(p => (
-                      <div key={p.plan} className="border-2 border-brand-teal/20 rounded-2xl p-5 hover:border-brand-teal/50 transition-colors">
-                        <p className="text-base font-bold text-slate-800">{p.plan}</p>
-                        <p className="text-2xl font-bold gradient-text mt-1">{p.price}<span className="text-sm font-normal text-slate-500">/mo</span></p>
-                        <ul className="mt-3 space-y-1.5">
-                          {p.features.map(f => (
-                            <li key={f} className="flex items-center gap-2 text-xs text-slate-600">
-                              <Check size={12} className="text-brand-teal" /> {f}
-                            </li>
-                          ))}
-                        </ul>
-                        <Button fullWidth className="mt-4" size="sm">Upgrade to {p.plan}</Button>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
