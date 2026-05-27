@@ -404,27 +404,34 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Desktop — 3-col grid: text | icon+number | text */}
-                  <div className="hidden lg:grid grid-cols-[1fr_80px_1fr] items-center gap-x-8">
+                  {/* Desktop — 5-col grid: text | number | icon | number | text */}
+                  <div className="hidden lg:grid grid-cols-[1fr_48px_64px_48px_1fr] items-center gap-x-4">
                     <div className="text-right">
                       {item.side === 'left' && (
                         <>
-                          <h3 className="text-lg font-bold text-slate-800">{item.title}</h3>
-                          <p className="text-sm text-slate-500 mt-1.5">{item.desc}</p>
+                          <h3 className="text-xl font-bold text-slate-800">{item.title}</h3>
+                          <p className="text-sm text-slate-500 mt-2 max-w-xs ml-auto">{item.desc}</p>
                         </>
                       )}
                     </div>
-                    <div className="flex flex-col items-center gap-1 relative z-10">
-                      <span className="text-2xl font-black text-brand-teal/30">{item.step}</span>
-                      <div className="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand">
-                        <item.icon size={22} className="text-white" />
-                      </div>
+                    <div className="flex items-center justify-center">
+                      {item.side === 'left' && (
+                        <span className="text-3xl font-black text-brand-teal/25">{item.step}</span>
+                      )}
+                    </div>
+                    <div className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand mx-auto">
+                      <item.icon size={26} className="text-white" />
+                    </div>
+                    <div className="flex items-center justify-center">
+                      {item.side === 'right' && (
+                        <span className="text-3xl font-black text-brand-teal/25">{item.step}</span>
+                      )}
                     </div>
                     <div className="text-left">
                       {item.side === 'right' && (
                         <>
-                          <h3 className="text-lg font-bold text-slate-800">{item.title}</h3>
-                          <p className="text-sm text-slate-500 mt-1.5">{item.desc}</p>
+                          <h3 className="text-xl font-bold text-slate-800">{item.title}</h3>
+                          <p className="text-sm text-slate-500 mt-2 max-w-xs">{item.desc}</p>
                         </>
                       )}
                     </div>
