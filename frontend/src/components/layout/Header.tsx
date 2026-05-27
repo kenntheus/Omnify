@@ -216,7 +216,6 @@ export default function Header({ sidebarCollapsed, onMobileMenuOpen }: HeaderPro
                 <div className="px-4 py-3 border-b border-slate-100">
                   <p className="text-sm font-semibold text-slate-800">{user?.name}</p>
                   <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-                  <Badge variant="teal" className="mt-1.5 text-xs">{user?.subscription || 'Free'}</Badge>
                 </div>
 
                 <div className="py-1">
