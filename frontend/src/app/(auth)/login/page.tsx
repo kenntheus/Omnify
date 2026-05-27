@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Sparkles, ArrowRight, Chrome } from 'lucide-react'
+import { Sparkles, ArrowRight } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -31,9 +30,8 @@ const features = [
 export default function LoginPage() {
   const router = useRouter()
   const { login, isLoading } = useAuthStore()
-  const [demoLoading, setDemoLoading] = useState(false)
 
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
@@ -44,20 +42,6 @@ export default function LoginPage() {
       router.push('/dashboard')
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Login failed')
-    }
-  }
-
-  const loginDemo = async () => {
-    setDemoLoading(true)
-    try {
-      await login('demo@omnify.ai', 'Demo@12345')
-      toast.success('Welcome! Exploring with demo account.')
-      router.push('/dashboard')
-    } catch {
-      // For demo purposes without backend, redirect anyway
-      router.push('/dashboard')
-    } finally {
-      setDemoLoading(false)
     }
   }
 
@@ -103,19 +87,6 @@ export default function LoginPage() {
           ))}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mt-10">
-          {[
-            { value: '50K+', label: 'Job seekers' },
-            { value: '94%', label: 'Match accuracy' },
-            { value: '3x', label: 'Faster hiring' },
-          ].map((stat) => (
-            <div key={stat.label} className="glass-card p-4 text-center">
-              <p className="text-2xl font-bold gradient-text">{stat.value}</p>
-              <p className="text-xs text-slate-500 mt-1">{stat.label}</p>
-            </div>
-          ))}
-        </div>
       </motion.div>
 
       {/* Right — form */}
@@ -136,29 +107,6 @@ export default function LoginPage() {
           <div className="mb-7">
             <h2 className="text-2xl font-bold text-slate-800">Welcome back</h2>
             <p className="text-slate-500 text-sm mt-1">Sign in to continue your job search journey</p>
-          </div>
-
-          {/* Demo login */}
-          <button
-            onClick={loginDemo}
-            disabled={demoLoading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 mb-5 rounded-xl
-                       border-2 border-dashed border-brand-teal/40 bg-brand-aqua/20 text-brand-slate
-                       hover:bg-brand-aqua/40 hover:border-brand-teal/60 transition-all duration-200
-                       text-sm font-semibold cursor-pointer disabled:opacity-60"
-          >
-            {demoLoading ? (
-              <div className="w-4 h-4 border-2 border-brand-teal/30 border-t-brand-teal rounded-full animate-spin" />
-            ) : (
-              <Sparkles size={16} className="text-brand-teal" />
-            )}
-            Try Demo Account — No signup needed
-          </button>
-
-          <div className="relative flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs text-slate-400 font-medium">or sign in with email</span>
-            <div className="flex-1 h-px bg-slate-200" />
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
