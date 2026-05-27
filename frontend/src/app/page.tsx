@@ -268,7 +268,7 @@ export default function LandingPage() {
 
             {/* Floating cards */}
             <FloatingCard
-              className="absolute -top-6 -left-8 w-52"
+              className="absolute -top-6 -left-8 w-52 z-20"
               delay={0.6}
             >
               <div className="flex items-center gap-2.5">
@@ -283,7 +283,7 @@ export default function LandingPage() {
             </FloatingCard>
 
             <FloatingCard
-              className="absolute -bottom-4 -right-8 w-48"
+              className="absolute -bottom-4 -right-8 w-48 z-20"
               delay={0.8}
             >
               <div className="flex items-center gap-2.5">
