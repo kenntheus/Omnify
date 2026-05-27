@@ -376,9 +376,9 @@ export default function LandingPage() {
 
           <div className="relative">
             {/* Connector line */}
-            <div className="hidden lg:block absolute left-1/2 top-12 bottom-12 w-0.5 bg-gradient-to-b from-brand-teal/30 via-brand-teal to-brand-teal/30" />
+            <div className="hidden lg:block absolute left-1/2 -translate-x-1/2 top-8 bottom-8 w-0.5 bg-gradient-to-b from-brand-teal/30 via-brand-teal to-brand-teal/30" />
 
-            <div className="space-y-8">
+            <div className="space-y-5">
               {[
                 { step: '01', title: 'Upload your resume', desc: 'Our AI analyzes your resume in seconds, extracts your skills, and gives you an ATS compatibility score with improvement tips.', icon: FileText, side: 'left' },
                 { step: '02', title: 'Discover matched jobs', desc: 'Browse hundreds of AI-curated job recommendations ranked by your match score, salary, and preferences.', icon: Briefcase, side: 'right' },
@@ -387,26 +387,48 @@ export default function LandingPage() {
               ].map((item, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, x: item.side === 'left' ? -24 : 24 }}
+                  initial={{ opacity: 0, x: item.side === 'left' ? -20 : 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className={cn(
-                    'flex items-center gap-8 flex-col',
-                    item.side === 'left' ? 'lg:flex-row' : 'lg:flex-row-reverse'
-                  )}
                 >
-                  <div className={cn('flex-1', item.side === 'right' ? 'lg:text-right' : 'lg:text-left', 'text-center')}>
-                    <span className="text-5xl font-black text-brand-teal/15">{item.step}</span>
-                    <h3 className="text-xl font-bold text-slate-800 -mt-3">{item.title}</h3>
-                    <p className={cn('text-slate-500 mt-2 max-w-xs mx-auto lg:mx-0', item.side === 'right' ? 'lg:ml-auto' : '')}>{item.desc}</p>
+                  {/* Mobile */}
+                  <div className="lg:hidden flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand flex-shrink-0">
+                      <item.icon size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <span className="text-2xl font-black text-brand-teal/20">{item.step}</span>
+                      <h3 className="text-base font-bold text-slate-800 -mt-1">{item.title}</h3>
+                      <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
+                    </div>
                   </div>
 
-                  <div className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand flex-shrink-0 lg:mx-0">
-                    <item.icon size={26} className="text-white" />
+                  {/* Desktop — 3-col grid: text | icon+number | text */}
+                  <div className="hidden lg:grid grid-cols-[1fr_80px_1fr] items-center gap-x-8">
+                    <div className="text-right">
+                      {item.side === 'left' && (
+                        <>
+                          <h3 className="text-lg font-bold text-slate-800">{item.title}</h3>
+                          <p className="text-sm text-slate-500 mt-1.5">{item.desc}</p>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-center gap-1 relative z-10">
+                      <span className="text-2xl font-black text-brand-teal/30">{item.step}</span>
+                      <div className="w-[56px] h-[56px] rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand">
+                        <item.icon size={22} className="text-white" />
+                      </div>
+                    </div>
+                    <div className="text-left">
+                      {item.side === 'right' && (
+                        <>
+                          <h3 className="text-lg font-bold text-slate-800">{item.title}</h3>
+                          <p className="text-sm text-slate-500 mt-1.5">{item.desc}</p>
+                        </>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="flex-1 lg:block hidden" />
                 </motion.div>
               ))}
             </div>
