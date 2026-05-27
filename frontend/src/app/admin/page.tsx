@@ -30,11 +30,11 @@ const growthData = [
 ]
 
 const recentUsers = [
-  { id: '1', name: 'Sarah Johnson', email: 'sarah.j@email.com', plan: 'pro', joined: '2024-12-11T09:00:00Z', apps: 12, status: 'active' },
-  { id: '2', name: 'Michael Chen', email: 'm.chen@email.com', plan: 'free', joined: '2024-12-11T08:30:00Z', apps: 4, status: 'active' },
-  { id: '3', name: 'Emma Davis', email: 'emma.d@email.com', plan: 'enterprise', joined: '2024-12-10T16:00:00Z', apps: 89, status: 'active' },
-  { id: '4', name: 'James Wilson', email: 'j.wilson@email.com', plan: 'free', joined: '2024-12-10T12:00:00Z', apps: 2, status: 'inactive' },
-  { id: '5', name: 'Lisa Thompson', email: 'l.thompson@email.com', plan: 'pro', joined: '2024-12-09T10:00:00Z', apps: 28, status: 'active' },
+  { id: '1', name: 'Sarah Johnson', email: 'sarah.j@email.com', joined: '2024-12-11T09:00:00Z', apps: 12, status: 'active' },
+  { id: '2', name: 'Michael Chen', email: 'm.chen@email.com', joined: '2024-12-11T08:30:00Z', apps: 4, status: 'active' },
+  { id: '3', name: 'Emma Davis', email: 'emma.d@email.com', joined: '2024-12-10T16:00:00Z', apps: 89, status: 'active' },
+  { id: '4', name: 'James Wilson', email: 'j.wilson@email.com', joined: '2024-12-10T12:00:00Z', apps: 2, status: 'inactive' },
+  { id: '5', name: 'Lisa Thompson', email: 'l.thompson@email.com', joined: '2024-12-09T10:00:00Z', apps: 28, status: 'active' },
 ]
 
 const systemServices = [
@@ -252,9 +252,6 @@ export default function AdminPage() {
                     <p className="text-xs text-slate-400 truncate">{u.email}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={u.plan === 'enterprise' ? 'purple' : u.plan === 'pro' ? 'teal' : 'slate'} className="text-[10px]">
-                      {u.plan}
-                    </Badge>
                     <span className="text-xs text-slate-400">{u.apps} apps</span>
                     <ChevronRight size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
