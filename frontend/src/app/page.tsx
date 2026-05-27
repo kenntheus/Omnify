@@ -6,7 +6,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, ArrowRight, Check, Zap, Brain, FileText,
   Briefcase, ClipboardList, Bot, Shield, TrendingUp,
-  ChevronDown, Play, Menu, X
+  ChevronDown, Menu, X
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -199,9 +199,11 @@ export default function LandingPage() {
                   Get started
                 </Button>
               </Link>
-              <Button variant="secondary" size="xl" leftIcon={<Play size={16} />}>
-                Watch demo
-              </Button>
+              <a href="#features">
+                <Button variant="secondary" size="xl">
+                  Learn more
+                </Button>
+              </a>
             </motion.div>
 
           </div>
