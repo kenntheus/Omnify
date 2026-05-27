@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, FileText, Briefcase, Bookmark, ClipboardList,
   BrainCircuit, Settings, LogOut, ChevronLeft, ChevronRight,
-  Bell, Crown, Sparkles, Menu, X
+  Sparkles, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -60,25 +60,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
-
-      {/* Upgrade banner */}
-      {!collapsed && user?.subscription === 'free' && (
-        <div className="mx-3 mt-4 p-3 rounded-xl bg-gradient-to-br from-brand-teal/20 to-primary-500/10 border border-brand-teal/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Crown size={14} className="text-brand-teal" />
-            <span className="text-xs font-semibold text-brand-teal">Upgrade to Pro</span>
-          </div>
-          <p className="text-xs text-slate-400 mb-2.5">
-            Unlock unlimited applications & AI features
-          </p>
-          <Link
-            href="/settings?tab=billing"
-            className="block text-center text-xs font-semibold py-1.5 px-3 rounded-lg bg-brand-teal text-white hover:bg-primary-400 transition-colors"
-          >
-            Upgrade Now
-          </Link>
-        </div>
-      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scroll-hide" aria-label="Main navigation">
@@ -152,7 +133,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
-              <p className="text-xs text-slate-400 truncate">{user?.subscription || 'free'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
             </div>
           )}
           {!collapsed && (
