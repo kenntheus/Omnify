@@ -64,24 +64,6 @@ const testimonials = [
   { name: 'Priya Patel', role: 'Data Scientist @ Anthropic', avatar: 'PP', quote: 'The AI career assistant helped me negotiate a $30K salary increase. It knew exactly what to say and when to push back.', rating: 5 },
 ]
 
-const plans = [
-  {
-    name: 'Free', price: '$0', period: 'forever', popular: false,
-    features: ['10 applications/month', 'Basic AI matching', 'Resume upload', 'Job search', 'Application tracker'],
-    cta: 'Get Started Free',
-  },
-  {
-    name: 'Pro', price: '$29', period: '/month', popular: true,
-    features: ['Unlimited applications', 'Advanced AI matching', 'Auto-apply automation', 'AI cover letters (unlimited)', 'AI career assistant', 'Priority support', 'Resume optimization'],
-    cta: 'Start Pro Trial',
-  },
-  {
-    name: 'Enterprise', price: '$79', period: '/month', popular: false,
-    features: ['Everything in Pro', 'Team seats (5 users)', 'API access', 'Custom integrations', 'Analytics exports', 'Dedicated account manager', 'Custom AI training'],
-    cta: 'Contact Sales',
-  },
-]
-
 const faqs = [
   { q: 'Is Omnify safe to use for auto-applying?', a: 'Yes. Omnify uses read-only browser automation that mimics human behavior. We never store your passwords and use secure OAuth where possible.' },
   { q: 'How accurate is the AI job matching?', a: 'Our matching engine achieves 94% accuracy in predicting application success based on skill overlap, experience, and market demand data.' },
@@ -126,7 +108,7 @@ export default function LandingPage() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-6">
-            {['Features', 'How it works', 'Pricing', 'FAQ'].map(item => (
+            {['Features', 'How it works', 'FAQ'].map(item => (
               <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
                 {item}
               </a>
@@ -138,7 +120,7 @@ export default function LandingPage() {
               <Button variant="ghost" size="sm">Sign in</Button>
             </Link>
             <Link href="/register">
-              <Button size="sm" rightIcon={<ArrowRight size={14} />}>Get started free</Button>
+              <Button size="sm" rightIcon={<ArrowRight size={14} />}>Get started</Button>
             </Link>
           </div>
 
@@ -160,14 +142,14 @@ export default function LandingPage() {
               className="md:hidden border-t border-slate-100 bg-white/95 backdrop-blur-glass"
             >
               <div className="px-4 py-4 space-y-3">
-                {['Features', 'How it works', 'Pricing', 'FAQ'].map(item => (
+                {['Features', 'How it works', 'FAQ'].map(item => (
                   <a key={item} href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} onClick={() => setMobileMenuOpen(false)} className="block text-sm font-medium text-slate-700 py-2">
                     {item}
                   </a>
                 ))}
                 <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
                   <Link href="/login"><Button variant="secondary" fullWidth>Sign in</Button></Link>
-                  <Link href="/register"><Button fullWidth>Get started free</Button></Link>
+                  <Link href="/register"><Button fullWidth>Get started</Button></Link>
                 </div>
               </div>
             </motion.div>
@@ -227,7 +209,7 @@ export default function LandingPage() {
             >
               <Link href="/register">
                 <Button size="xl" rightIcon={<ArrowRight size={18} />}>
-                  Start for free
+                  Get started
                 </Button>
               </Link>
               <Button variant="secondary" size="xl" leftIcon={<Play size={16} />}>
@@ -542,72 +524,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING ───────────────────────────────────────────── */}
-      <section id="pricing" className="py-24 bg-white/70">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-14"
-          >
-            <h2 className="text-4xl font-bold text-slate-800">Simple, transparent pricing</h2>
-            <p className="text-slate-500 mt-3">Start free. Upgrade when you need more power.</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-5">
-            {plans.map((plan, i) => (
-              <motion.div
-                key={plan.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className={cn(
-                  'relative rounded-2xl p-6 transition-all',
-                  plan.popular
-                    ? 'bg-gradient-to-br from-brand-teal to-primary-500 text-white shadow-brand-lg scale-105'
-                    : 'glass-card'
-                )}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-900 text-xs font-bold px-4 py-1 rounded-full">
-                    Most Popular
-                  </div>
-                )}
-
-                <p className={cn('text-base font-bold', plan.popular ? 'text-white' : 'text-slate-800')}>{plan.name}</p>
-                <div className="mt-3 mb-5">
-                  <span className={cn('text-4xl font-black', plan.popular ? 'text-white' : 'gradient-text')}>{plan.price}</span>
-                  <span className={cn('text-sm', plan.popular ? 'text-white/70' : 'text-slate-400')}>{plan.period}</span>
-                </div>
-
-                <ul className="space-y-2.5 mb-6">
-                  {plan.features.map(f => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                      <div className={cn('w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0', plan.popular ? 'bg-white/20' : 'bg-brand-aqua/60')}>
-                        <Check size={9} className={plan.popular ? 'text-white' : 'text-brand-teal'} strokeWidth={3} />
-                      </div>
-                      <span className={plan.popular ? 'text-white/90' : 'text-slate-600'}>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <Link href="/register">
-                  <Button
-                    fullWidth
-                    variant={plan.popular ? 'secondary' : 'primary'}
-                    className={plan.popular ? 'bg-white text-brand-teal hover:bg-white/90 font-bold' : ''}
-                  >
-                    {plan.cta}
-                  </Button>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── FAQ ───────────────────────────────────────────────── */}
       <section id="faq" className="py-24 bg-mesh">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
@@ -669,10 +585,9 @@ export default function LandingPage() {
                 className="bg-white text-brand-teal hover:bg-white/90 font-bold shadow-glass-md"
                 rightIcon={<ArrowRight size={18} />}
               >
-                Get started for free
+                Get started
               </Button>
             </Link>
-            <p className="text-white/50 text-sm mt-4">No credit card required · Free forever plan available</p>
           </motion.div>
         </div>
       </section>
@@ -691,7 +606,7 @@ export default function LandingPage() {
               <p className="text-sm leading-relaxed max-w-xs">Your AI-powered career co-pilot. Land your dream job 10x faster with intelligent automation.</p>
             </div>
             {[
-              { title: 'Product', links: ['Features', 'Pricing', 'Changelog', 'Roadmap'] },
+              { title: 'Product', links: ['Features', 'Changelog', 'Roadmap'] },
               { title: 'Company', links: ['About', 'Blog', 'Careers', 'Press'] },
               { title: 'Legal', links: ['Privacy', 'Terms', 'Cookies', 'Security'] },
             ].map(col => (
