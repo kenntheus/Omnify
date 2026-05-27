@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, ArrowRight, Check, Zap, Brain, FileText,
-  Briefcase, ClipboardList, Bot, Shield, TrendingUp, Star,
-  ChevronDown, Play, Users, Trophy, Cpu, ChevronRight, Menu, X
+  Briefcase, ClipboardList, Bot, Shield, TrendingUp,
+  ChevronDown, Play, Menu, X
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -51,22 +51,9 @@ const features = [
   },
 ]
 
-const stats = [
-  { value: '50K+', label: 'Job seekers', icon: Users },
-  { value: '94%', label: 'ATS pass rate', icon: TrendingUp },
-  { value: '3x', label: 'Faster hiring', icon: Trophy },
-  { value: '2M+', label: 'Applications', icon: ClipboardList },
-]
-
-const testimonials = [
-  { name: 'Sarah Chen', role: 'Frontend Engineer @ Stripe', avatar: 'SC', quote: 'Omnify helped me land 3 interviews in my first week. The AI matching is incredible — it found roles I never would have discovered on my own.', rating: 5 },
-  { name: 'Marcus Johnson', role: 'Product Manager @ Notion', avatar: 'MJ', quote: 'The auto-apply feature saved me 10+ hours per week. My resume score went from 62 to 91 after following the AI suggestions.', rating: 5 },
-  { name: 'Priya Patel', role: 'Data Scientist @ Anthropic', avatar: 'PP', quote: 'The AI career assistant helped me negotiate a $30K salary increase. It knew exactly what to say and when to push back.', rating: 5 },
-]
-
 const faqs = [
   { q: 'Is Omnify safe to use for auto-applying?', a: 'Yes. Omnify uses read-only browser automation that mimics human behavior. We never store your passwords and use secure OAuth where possible.' },
-  { q: 'How accurate is the AI job matching?', a: 'Our matching engine achieves 94% accuracy in predicting application success based on skill overlap, experience, and market demand data.' },
+  { q: 'How accurate is the AI job matching?', a: 'Our matching engine analyzes skill overlap, years of experience, and market demand to surface the most relevant roles for your profile.' },
   { q: 'Can I use Omnify for international jobs?', a: 'Absolutely. Omnify supports job boards across 40+ countries including LinkedIn, Indeed, Glassdoor, and many regional platforms.' },
   { q: 'What happens to my resume data?', a: 'Your data is encrypted at rest and in transit. We never share your personal information with third parties. You can delete your data at any time.' },
 ]
@@ -217,26 +204,6 @@ export default function LandingPage() {
               </Button>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="flex items-center gap-4 mt-8 justify-center lg:justify-start"
-            >
-              <div className="flex -space-x-2">
-                {['SC', 'MJ', 'PP', 'AR', 'KL'].map((av, i) => (
-                  <div key={i} className="w-8 h-8 rounded-full border-2 border-white bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center text-white text-[9px] font-bold">
-                    {av}
-                  </div>
-                ))}
-              </div>
-              <div>
-                <div className="flex items-center gap-0.5">
-                  {[1,2,3,4,5].map(i => <Star key={i} size={12} className="fill-amber-400 stroke-amber-400" />)}
-                </div>
-                <p className="text-xs text-slate-500 mt-0.5">Loved by <strong className="text-slate-700">50,000+</strong> job seekers</p>
-              </div>
-            </motion.div>
           </div>
 
           {/* Right — hero UI mockup */}
@@ -330,16 +297,6 @@ export default function LandingPage() {
               </div>
             </FloatingCard>
 
-            <FloatingCard
-              className="absolute top-1/2 -right-12 w-44"
-              delay={1}
-            >
-              <div className="text-center">
-                <p className="text-2xl font-bold gradient-text">94%</p>
-                <p className="text-xs text-slate-500">Interview rate vs</p>
-                <p className="text-xs text-slate-400">20% industry avg</p>
-              </div>
-            </FloatingCard>
           </motion.div>
         </motion.div>
 
@@ -352,30 +309,6 @@ export default function LandingPage() {
           <span className="text-xs text-slate-400">Scroll to explore</span>
           <ChevronDown size={16} className="text-slate-300" />
         </motion.div>
-      </section>
-
-      {/* ── STATS ─────────────────────────────────────────────── */}
-      <section className="py-16 bg-white/60 border-y border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {stats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-brand-aqua/40 flex items-center justify-center mx-auto mb-3">
-                  <stat.icon size={20} className="text-brand-teal" />
-                </div>
-                <p className="text-3xl font-bold gradient-text">{stat.value}</p>
-                <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
       </section>
 
       {/* ── FEATURES ─────────────────────────────────────────── */}
@@ -482,48 +415,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ─────────────────────────────────────── */}
-      <section className="py-24 bg-mesh">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-14"
-          >
-            <h2 className="text-4xl font-bold text-slate-800">Loved by job seekers</h2>
-            <p className="text-slate-500 mt-3">Real stories from real people who landed their dream jobs</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-5">
-            {testimonials.map((t, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="glass-card p-6"
-              >
-                <div className="flex items-center gap-0.5 mb-4">
-                  {[...Array(t.rating)].map((_, j) => <Star key={j} size={14} className="fill-amber-400 stroke-amber-400" />)}
-                </div>
-                <p className="text-sm text-slate-600 leading-relaxed mb-5">&ldquo;{t.quote}&rdquo;</p>
-                <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center text-white text-xs font-bold">
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{t.name}</p>
-                    <p className="text-xs text-slate-400">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── FAQ ───────────────────────────────────────────────── */}
       <section id="faq" className="py-24 bg-mesh">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
@@ -578,7 +469,7 @@ export default function LandingPage() {
               <Sparkles size={30} className="text-white" />
             </div>
             <h2 className="text-4xl font-bold text-white mb-4">Ready to transform your job search?</h2>
-            <p className="text-white/80 text-lg mb-8">Join 50,000+ job seekers using Omnify to land their dream jobs faster.</p>
+            <p className="text-white/80 text-lg mb-8">Start using Omnify today and let AI handle the heavy lifting in your job search.</p>
             <Link href="/register">
               <Button
                 size="xl"
