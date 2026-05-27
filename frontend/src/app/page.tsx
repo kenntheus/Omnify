@@ -392,15 +392,14 @@ export default function LandingPage() {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
                   className={cn(
-                    'flex items-center gap-8',
-                    item.side === 'right' && 'flex-row-reverse lg:flex-row-reverse',
-                    'flex-col lg:flex-row'
+                    'flex items-center gap-8 flex-col',
+                    item.side === 'left' ? 'lg:flex-row' : 'lg:flex-row-reverse'
                   )}
                 >
                   <div className={cn('flex-1', item.side === 'right' ? 'lg:text-right' : 'lg:text-left', 'text-center')}>
                     <span className="text-5xl font-black text-brand-teal/15">{item.step}</span>
                     <h3 className="text-xl font-bold text-slate-800 -mt-3">{item.title}</h3>
-                    <p className="text-slate-500 mt-2 max-w-xs mx-auto lg:mx-0 lg:ml-auto">{item.desc}</p>
+                    <p className={cn('text-slate-500 mt-2 max-w-xs mx-auto lg:mx-0', item.side === 'right' ? 'lg:ml-auto' : '')}>{item.desc}</p>
                   </div>
 
                   <div className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand flex-shrink-0 lg:mx-0">
