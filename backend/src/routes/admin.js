@@ -42,4 +42,64 @@ router.get('/health', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { api: 'healthy', database: 'healthy', uptime: process.uptime() } })
 }))
 
+// ─── Sync jobs from Remotive API ──────────────────────────────
+router.post('/sync-jobs', asyncHandler(async (req, res) => {
+  const axios = require('axios')
+
+  function stripHtml(html = '') {
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000)
+  }
+
+  const CATEGORIES = ['software-dev', 'devops-sysadmin', 'design', 'product', 'data']
+  let all = []
+  const errors = []
+
+  for (const cat of CATEGORIES) {
+    try {
+      const { data } = await axios.get('https://remotive.com/api/remote-jobs', {
+        params: { category: cat, limit: 25 },
+        timeout: 12000,
+      })
+      all = all.concat(data.jobs || [])
+    } catch (err) {
+      errors.push(`${cat}: ${err.message}`)
+    }
+  }
+
+  let upserted = 0
+  for (const job of all) {
+    try {
+      await Job.findOneAndUpdate(
+        { sourceId: `remotive-${job.id}` },
+        {
+          title: job.title,
+          company: { name: job.company_name, logo: job.company_logo, industry: job.category },
+          location: job.candidate_required_location || 'Worldwide',
+          remote: 'remote',
+          description: stripHtml(job.description),
+          skills: (job.tags || []).slice(0, 10),
+          tags: (job.tags || []).slice(0, 10),
+          type: { full_time: 'full-time', part_time: 'part-time', contract: 'contract', freelance: 'freelance' }[job.job_type] || 'full-time',
+          source: 'scraped',
+          sourceUrl: job.url,
+          sourceId: `remotive-${job.id}`,
+          postedAt: new Date(job.publication_date),
+          isActive: true,
+          experience: 'Not specified',
+        },
+        { upsert: true, new: true, runValidators: false }
+      )
+      upserted++
+    } catch {
+      // skip invalid jobs
+    }
+  }
+
+  res.json({
+    success: true,
+    message: `Synced ${upserted} jobs from Remotive`,
+    data: { upserted, fetched: all.length, errors },
+  })
+}))
+
 module.exports = router
