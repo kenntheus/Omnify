@@ -4,6 +4,7 @@ const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const Job = require('../models/Job')
 const Application = require('../models/Application')
+const { notify } = require('../utils/notify')
 
 // ─── Search jobs ──────────────────────────────────────────────
 router.get('/search', protect, asyncHandler(async (req, res) => {
@@ -118,6 +119,19 @@ router.post('/:id/save', protect, asyncHandler(async (req, res) => {
     status: 'saved',
     timeline: [{ status: 'saved', automated: false }],
   })
+
+  // Notify when a high-match job is saved
+  const userSkills = req.user.profile?.skills || []
+  const matchedSkills = job.skills?.filter(s => userSkills.includes(s)) || []
+  if (matchedSkills.length >= 2) {
+    notify({
+      userId: req.user._id,
+      type: 'job_match',
+      title: 'Strong job match saved',
+      message: `You saved ${job.title} at ${job.company?.name || 'a company'} — ${matchedSkills.length} of your skills match this role.`,
+      actionUrl: '/saved-jobs',
+    })
+  }
 
   res.status(201).json({ success: true, data: application, message: 'Job saved' })
 }))

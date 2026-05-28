@@ -3,6 +3,7 @@ const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const Application = require('../models/Application')
+const { notify } = require('../utils/notify')
 
 // ─── Get all applications ─────────────────────────────────────
 router.get('/', protect, asyncHandler(async (req, res) => {
@@ -80,6 +81,14 @@ router.post('/', protect, asyncHandler(async (req, res) => {
     timeline: [{ status: 'applied', automated: false }],
   })
 
+  notify({
+    userId: req.user._id,
+    type: 'application_update',
+    title: 'Application submitted',
+    message: `Your application has been submitted and is being tracked.`,
+    actionUrl: '/applications',
+  })
+
   res.status(201).json({ success: true, data: application, message: 'Application submitted' })
 }))
 
@@ -90,9 +99,32 @@ router.put('/:id/status', protect, asyncHandler(async (req, res) => {
   const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
   if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
 
+  const prevStatus = application.status
   application.status = status
   application.timeline.push({ status, note, automated: false })
   await application.save()
+
+  // Notify on meaningful status changes
+  const notifyStatuses = {
+    reviewing: 'Application under review',
+    phone_screen: 'Phone screen scheduled',
+    interview: 'Interview stage reached',
+    technical: 'Technical interview stage',
+    final_interview: 'Final interview stage',
+    offer: 'Offer received!',
+    accepted: 'Offer accepted — congratulations!',
+    rejected: 'Application update',
+  }
+  const notifyTitle = notifyStatuses[status]
+  if (notifyTitle && status !== prevStatus) {
+    notify({
+      userId: req.user._id,
+      type: status === 'offer' || status === 'accepted' ? 'application_update' : 'application_update',
+      title: notifyTitle,
+      message: `Your application status has been updated to "${status.replace(/_/g, ' ')}".`,
+      actionUrl: '/applications',
+    })
+  }
 
   res.json({ success: true, data: application })
 }))
@@ -106,6 +138,18 @@ router.post('/:id/interviews', protect, asyncHandler(async (req, res) => {
   application.status = 'interview'
   application.timeline.push({ status: 'interview', note: `${req.body.type} interview scheduled` })
   await application.save()
+
+  const interviewDate = req.body.scheduledAt
+    ? new Date(req.body.scheduledAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'soon'
+  notify({
+    userId: req.user._id,
+    type: 'interview_reminder',
+    title: 'Interview scheduled',
+    message: `A ${req.body.type} interview has been scheduled for ${interviewDate}.`,
+    actionUrl: '/applications',
+    metadata: { scheduledAt: req.body.scheduledAt, type: req.body.type },
+  })
 
   res.json({ success: true, data: application })
 }))
@@ -195,6 +239,16 @@ router.post('/auto-apply', protect, asyncHandler(async (req, res) => {
       timeline: [{ status: 'applied', automated: true, note: 'Auto-applied via Omnify' }],
     })
   }
+
+  notify({
+    userId: req.user._id,
+    type: 'application_update',
+    title: automationResult.success ? 'Auto-apply completed' : 'Application recorded',
+    message: automationResult.success
+      ? `Omnify automatically submitted your application to ${job.title} at ${job.company?.name || 'the company'}.`
+      : `Your application to ${job.title} has been recorded. Complete the application manually if needed.`,
+    actionUrl: '/applications',
+  })
 
   res.status(201).json({
     success: true,
