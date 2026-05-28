@@ -1,5 +1,6 @@
 const express = require('express')
 const multer = require('multer')
+const { notify } = require('../utils/notify')
 const path = require('path')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
@@ -73,6 +74,14 @@ router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
     resume.analysis = { ...aiResponse.data, analyzedAt: new Date() }
     await resume.save()
 
+    notify({
+      userId: req.user._id,
+      type: 'tip',
+      title: 'Resume analysis complete',
+      message: `Your resume scored ${aiResponse.data.atsScore ?? '—'}/100 for ATS compatibility. View your results and improvement tips.`,
+      actionUrl: '/resume',
+    })
+
     res.json({ success: true, data: resume, message: 'Resume analyzed successfully' })
   } catch (aiErr) {
     // Fallback mock analysis if AI service is down
@@ -96,6 +105,15 @@ router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
       analyzedAt: new Date(),
     }
     await resume.save()
+
+    notify({
+      userId: req.user._id,
+      type: 'tip',
+      title: 'Resume analysis complete',
+      message: `Your resume scored ${resume.analysis.atsScore}/100. View your results and improvement suggestions.`,
+      actionUrl: '/resume',
+    })
+
     res.json({ success: true, data: resume, message: 'Resume analyzed (AI service unavailable, using fallback)' })
   }
 }))
