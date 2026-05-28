@@ -7,6 +7,9 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
+import { userAPI } from '@/lib/api'
+import type { UserPreferences } from '@/types'
+import toast from 'react-hot-toast'
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -15,18 +18,126 @@ const tabs = [
   { id: 'preferences', label: 'Preferences', icon: Palette },
 ]
 
-const skills = ['React', 'TypeScript', 'Node.js', 'Python', 'GraphQL', 'AWS', 'Docker']
+const notifItems: { key: keyof Omit<UserPreferences, 'theme'>; title: string; desc: string }[] = [
+  { key: 'jobAlerts', title: 'New job matches', desc: 'Get notified when new jobs match your profile' },
+  { key: 'emailNotifications', title: 'Application updates', desc: 'Status changes on your applications' },
+  { key: 'pushNotifications', title: 'Interview reminders', desc: '24 hours before scheduled interviews' },
+  { key: 'weeklyDigest', title: 'Weekly job digest', desc: 'A weekly summary of top job matches' },
+]
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState('profile')
-  const [saved, setSaved] = useState(false)
-  const [newSkill, setNewSkill] = useState('')
-  const [userSkills, setUserSkills] = useState(skills)
-  const { user } = useAuthStore()
+  const { user, updateUser, logout } = useAuthStore()
 
-  const handleSave = async () => {
+  const [activeTab, setActiveTab] = useState('profile')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  // ── Profile fields ─────────────────────────────────────────
+  const [name, setName] = useState(user?.name || '')
+  const [title, setTitle] = useState(user?.profile?.title || '')
+  const [location, setLocation] = useState(user?.profile?.location || '')
+  const [phone, setPhone] = useState(user?.profile?.phone || '')
+  const [linkedin, setLinkedin] = useState(user?.profile?.linkedin || '')
+  const [bio, setBio] = useState(user?.profile?.bio || '')
+  const [userSkills, setUserSkills] = useState<string[]>(user?.profile?.skills || [])
+  const [newSkill, setNewSkill] = useState('')
+  const [remotePreference, setRemotePreference] = useState<string>(user?.profile?.remotePreference || 'any')
+  const [salaryMin, setSalaryMin] = useState(user?.profile?.desiredSalaryMin?.toString() || '')
+  const [salaryMax, setSalaryMax] = useState(user?.profile?.desiredSalaryMax?.toString() || '')
+
+  // ── Notification preferences ───────────────────────────────
+  const [notifPrefs, setNotifPrefs] = useState({
+    jobAlerts: user?.preferences?.jobAlerts ?? true,
+    emailNotifications: user?.preferences?.emailNotifications ?? true,
+    pushNotifications: user?.preferences?.pushNotifications ?? true,
+    weeklyDigest: user?.preferences?.weeklyDigest ?? false,
+  })
+
+  // ── App preferences ────────────────────────────────────────
+  const [theme, setTheme] = useState<UserPreferences['theme']>(user?.preferences?.theme || 'light')
+
+  const flashSaved = () => {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const saveProfile = async () => {
+    setSaving(true)
+    try {
+      const res = await userAPI.updateProfile({
+        name,
+        profile: {
+          ...(user?.profile || {}),
+          title,
+          location,
+          phone,
+          linkedin,
+          bio,
+          skills: userSkills,
+          remotePreference,
+          desiredSalaryMin: salaryMin ? Number(salaryMin) : undefined,
+          desiredSalaryMax: salaryMax ? Number(salaryMax) : undefined,
+        },
+      })
+      updateUser(res.data.data)
+      flashSaved()
+      toast.success('Profile saved')
+    } catch {
+      toast.error('Failed to save profile')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resetProfile = () => {
+    setName(user?.name || '')
+    setTitle(user?.profile?.title || '')
+    setLocation(user?.profile?.location || '')
+    setPhone(user?.profile?.phone || '')
+    setLinkedin(user?.profile?.linkedin || '')
+    setBio(user?.profile?.bio || '')
+    setUserSkills(user?.profile?.skills || [])
+    setRemotePreference(user?.profile?.remotePreference || 'any')
+    setSalaryMin(user?.profile?.desiredSalaryMin?.toString() || '')
+    setSalaryMax(user?.profile?.desiredSalaryMax?.toString() || '')
+  }
+
+  const saveNotifications = async () => {
+    setSaving(true)
+    try {
+      await userAPI.updatePreferences(notifPrefs)
+      updateUser({ preferences: { ...user?.preferences, ...notifPrefs } as UserPreferences })
+      flashSaved()
+      toast.success('Notification preferences saved')
+    } catch {
+      toast.error('Failed to save preferences')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveAppPreferences = async () => {
+    setSaving(true)
+    try {
+      await userAPI.updatePreferences({ theme })
+      updateUser({ preferences: { ...user?.preferences, theme } as UserPreferences })
+      flashSaved()
+      toast.success('Preferences saved')
+    } catch {
+      toast.error('Failed to save preferences')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const deleteAccount = async () => {
+    if (!window.confirm('This will permanently deactivate your account. Are you sure?')) return
+    try {
+      await userAPI.deleteAccount()
+      logout()
+    } catch {
+      toast.error('Failed to delete account')
+    }
   }
 
   const addSkill = () => {
@@ -37,6 +148,15 @@ export default function SettingsPage() {
   }
 
   const removeSkill = (skill: string) => setUserSkills(prev => prev.filter(s => s !== skill))
+
+  const toggleNotif = (key: keyof typeof notifPrefs) =>
+    setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const SaveButton = ({ onClick }: { onClick: () => void }) => (
+    <Button onClick={onClick} loading={saving} leftIcon={saved ? <Check size={15} /> : <Save size={15} />}>
+      {saved ? 'Saved!' : 'Save Changes'}
+    </Button>
+  )
 
   return (
     <div className="space-y-5 max-w-4xl">
@@ -75,7 +195,7 @@ export default function SettingsPage() {
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.2 }}
             >
-              {/* Profile tab */}
+              {/* ── Profile ──────────────────────────────────── */}
               {activeTab === 'profile' && (
                 <div className="space-y-6">
                   <div>
@@ -100,12 +220,44 @@ export default function SettingsPage() {
 
                     {/* Form fields */}
                     <div className="grid sm:grid-cols-2 gap-4">
-                      <Input label="Full name" defaultValue={user?.name || ''} placeholder="Your full name" />
-                      <Input label="Email address" type="email" defaultValue={user?.email || ''} placeholder="your@email.com" />
-                      <Input label="Job title" defaultValue="Senior Frontend Engineer" placeholder="Your current or desired title" />
-                      <Input label="Location" defaultValue="San Francisco, CA" placeholder="City, State" />
-                      <Input label="Phone number" type="tel" placeholder="+1 (555) 000-0000" />
-                      <Input label="LinkedIn URL" placeholder="linkedin.com/in/username" />
+                      <Input
+                        label="Full name"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        placeholder="Your full name"
+                      />
+                      <Input
+                        label="Email address"
+                        type="email"
+                        value={user?.email || ''}
+                        placeholder="your@email.com"
+                        disabled
+                      />
+                      <Input
+                        label="Job title"
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        placeholder="Your current or desired title"
+                      />
+                      <Input
+                        label="Location"
+                        value={location}
+                        onChange={e => setLocation(e.target.value)}
+                        placeholder="City, State"
+                      />
+                      <Input
+                        label="Phone number"
+                        type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                      />
+                      <Input
+                        label="LinkedIn URL"
+                        value={linkedin}
+                        onChange={e => setLinkedin(e.target.value)}
+                        placeholder="linkedin.com/in/username"
+                      />
                     </div>
 
                     <div className="mt-4">
@@ -114,8 +266,10 @@ export default function SettingsPage() {
                       </label>
                       <textarea
                         rows={3}
+                        value={bio}
+                        onChange={e => setBio(e.target.value)}
+                        placeholder="A brief professional summary..."
                         className="w-full px-4 py-3 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none focus:border-brand-teal/60 focus:bg-white transition-all"
-                        defaultValue="Experienced frontend engineer with 5+ years building scalable React applications. Passionate about performance, accessibility, and developer experience."
                       />
                     </div>
                   </div>
@@ -149,11 +303,15 @@ export default function SettingsPage() {
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1.5">Remote Preference</label>
-                        <select className="w-full px-4 py-3 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all">
-                          <option>Any</option>
-                          <option>Remote only</option>
-                          <option>Hybrid</option>
-                          <option>On-site</option>
+                        <select
+                          value={remotePreference}
+                          onChange={e => setRemotePreference(e.target.value)}
+                          className="w-full px-4 py-3 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all"
+                        >
+                          <option value="any">Any</option>
+                          <option value="remote">Remote only</option>
+                          <option value="hybrid">Hybrid</option>
+                          <option value="onsite">On-site</option>
                         </select>
                       </div>
                       <div>
@@ -164,50 +322,58 @@ export default function SettingsPage() {
                           <option>Contract</option>
                         </select>
                       </div>
-                      <Input label="Minimum salary (USD)" type="number" placeholder="120000" defaultValue="120000" />
-                      <Input label="Maximum salary (USD)" type="number" placeholder="250000" defaultValue="250000" />
+                      <Input
+                        label="Minimum salary (USD)"
+                        type="number"
+                        value={salaryMin}
+                        onChange={e => setSalaryMin(e.target.value)}
+                        placeholder="120000"
+                      />
+                      <Input
+                        label="Maximum salary (USD)"
+                        type="number"
+                        value={salaryMax}
+                        onChange={e => setSalaryMax(e.target.value)}
+                        placeholder="250000"
+                      />
                     </div>
                   </div>
 
                   <div className="flex justify-end gap-3">
-                    <Button variant="secondary">Cancel</Button>
-                    <Button onClick={handleSave} leftIcon={saved ? <Check size={15} /> : <Save size={15} />}>
-                      {saved ? 'Saved!' : 'Save Changes'}
-                    </Button>
+                    <Button variant="secondary" onClick={resetProfile} disabled={saving}>Cancel</Button>
+                    <SaveButton onClick={saveProfile} />
                   </div>
                 </div>
               )}
 
-              {/* Notifications tab */}
+              {/* ── Notifications ─────────────────────────────── */}
               {activeTab === 'notifications' && (
                 <div className="space-y-5">
                   <h3 className="text-base font-bold text-slate-800">Notification Preferences</h3>
-                  {[
-                    { title: 'New job matches', desc: 'Get notified when new jobs match your profile', defaultOn: true },
-                    { title: 'Application updates', desc: 'Status changes on your applications', defaultOn: true },
-                    { title: 'Interview reminders', desc: '24 hours before scheduled interviews', defaultOn: true },
-                    { title: 'Weekly job digest', desc: 'A weekly summary of top job matches', defaultOn: false },
-                    { title: 'AI insights', desc: 'Career tips and skill recommendations', defaultOn: true },
-                    { title: 'System updates', desc: 'Product announcements and feature releases', defaultOn: false },
-                  ].map((n, i) => (
-                    <div key={i} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
+                  {notifItems.map(({ key, title: label, desc }) => (
+                    <div key={key} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{n.title}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{n.desc}</p>
+                        <p className="text-sm font-medium text-slate-800">{label}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" defaultChecked={n.defaultOn} className="sr-only peer" />
+                        <input
+                          type="checkbox"
+                          checked={notifPrefs[key]}
+                          onChange={() => toggleNotif(key)}
+                          className="sr-only peer"
+                        />
                         <div className="w-10 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-teal" />
                       </label>
                     </div>
                   ))}
                   <div className="flex justify-end">
-                    <Button onClick={handleSave}>Save Preferences</Button>
+                    <SaveButton onClick={saveNotifications} />
                   </div>
                 </div>
               )}
 
-              {/* Security tab */}
+              {/* ── Security ──────────────────────────────────── */}
               {activeTab === 'security' && (
                 <div className="space-y-5">
                   <h3 className="text-base font-bold text-slate-800">Security Settings</h3>
@@ -224,18 +390,33 @@ export default function SettingsPage() {
                     <div className="p-4 rounded-xl border border-red-200 bg-red-50/50">
                       <p className="text-sm font-semibold text-red-700 mb-1">Delete Account</p>
                       <p className="text-xs text-red-600 mb-3">This action is permanent and cannot be undone.</p>
-                      <Button variant="danger" size="sm" leftIcon={<Trash2 size={14} />}>Delete My Account</Button>
+                      <Button variant="danger" size="sm" leftIcon={<Trash2 size={14} />} onClick={deleteAccount}>
+                        Delete My Account
+                      </Button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Preferences tab */}
+              {/* ── Preferences ───────────────────────────────── */}
               {activeTab === 'preferences' && (
                 <div className="space-y-5">
                   <h3 className="text-base font-bold text-slate-800">App Preferences</h3>
+
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                    <p className="text-sm font-medium text-slate-700">Theme</p>
+                    <select
+                      value={theme}
+                      onChange={e => setTheme(e.target.value as UserPreferences['theme'])}
+                      className="px-3 py-2 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all"
+                    >
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                      <option value="system">System</option>
+                    </select>
+                  </div>
+
                   {[
-                    { label: 'Theme', options: ['Light', 'Dark', 'System'], defaultValue: 'Light' },
                     { label: 'Language', options: ['English', 'Spanish', 'French', 'German'], defaultValue: 'English' },
                     { label: 'Currency', options: ['USD', 'EUR', 'GBP', 'CAD'], defaultValue: 'USD' },
                     { label: 'Date format', options: ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'], defaultValue: 'MM/DD/YYYY' },
@@ -250,8 +431,9 @@ export default function SettingsPage() {
                       </select>
                     </div>
                   ))}
+
                   <div className="flex justify-end">
-                    <Button onClick={handleSave}>Save Preferences</Button>
+                    <SaveButton onClick={saveAppPreferences} />
                   </div>
                 </div>
               )}
