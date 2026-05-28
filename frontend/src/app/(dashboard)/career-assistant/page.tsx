@@ -9,9 +9,11 @@ import {
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import { cn, timeAgo } from '@/lib/utils'
+import Skeleton from '@/components/ui/Skeleton'
+import { cn } from '@/lib/utils'
+import { careerAPI } from '@/lib/api'
+import type { CareerInsight } from '@/types'
 
-// ── Mock messages ─────────────────────────────────────────────
 const initialMessages = [
   {
     id: '1', role: 'assistant' as const,
@@ -29,15 +31,10 @@ const quickPrompts = [
   { icon: BookOpen, label: 'Resume review', prompt: 'Can you review my resume for a principal engineer role?' },
 ]
 
-const insights = [
-  { title: 'TypeScript demand', desc: 'TypeScript roles pay 18% more on average. You\'re already proficient!', trend: '+18%', positive: true },
-  { title: 'React market share', desc: '67% of frontend roles in your target market require React experience.', trend: '67%', positive: true },
-  { title: 'System design gap', desc: 'Adding system design skills could increase your match scores by 23%.', trend: '+23%', positive: true },
-  { title: 'Interview success', desc: 'Candidates with portfolio projects are 2.4x more likely to get offers.', trend: '2.4x', positive: true },
-]
-
-const mockResponses: Record<string, string> = {
-  default: "That's a great question! Based on your profile and current market trends, here are my key recommendations:\n\n**1. Focus on High-Impact Skills**\nReact, TypeScript, and system design are the most demanded skills in your target market. Your existing React experience puts you ahead.\n\n**2. Optimize Your Resume**\nQuantify your achievements with specific metrics. Instead of 'improved performance', say 'reduced load time by 40%, increasing user retention by 15%'.\n\n**3. Network Strategically**\nConnect with 5–10 engineers at your target companies on LinkedIn. Referrals increase your chances of getting an interview by 10x.\n\n**4. Practice Technical Interviews**\nSpend 30 mins/day on LeetCode medium problems. Focus on trees, graphs, and dynamic programming.\n\nWould you like me to dive deeper into any of these areas?",
+const priorityColor: Record<string, string> = {
+  high: 'text-red-500',
+  medium: 'text-amber-500',
+  low: 'text-emerald-600',
 }
 
 interface Message {
@@ -50,11 +47,20 @@ interface Message {
 
 export default function CareerAssistantPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [insights, setInsights] = useState<CareerInsight[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(true)
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [activeInsight, setActiveInsight] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    careerAPI.getInsights()
+      .then(res => setInsights(res.data.data as CareerInsight[]))
+      .catch(() => { /* leave empty */ })
+      .finally(() => setInsightsLoading(false))
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -83,27 +89,33 @@ export default function CareerAssistantPage() {
     setInput('')
     setIsLoading(true)
 
-    // Simulate AI response
-    await new Promise(r => setTimeout(r, 1500))
+    try {
+      const res = await careerAPI.chat(msg)
+      const response: string = res.data.data.response
 
-    const response = mockResponses.default
-    let displayed = ''
-
-    setMessages(prev => prev.map(m =>
-      m.id === loadingMsg.id ? { ...m, loading: false, content: '' } : m
-    ))
-
-    // Typewriter effect
-    for (let i = 0; i < response.length; i++) {
-      displayed += response[i]
-      const final = displayed
       setMessages(prev => prev.map(m =>
-        m.id === loadingMsg.id ? { ...m, content: final } : m
+        m.id === loadingMsg.id ? { ...m, loading: false, content: '' } : m
       ))
-      await new Promise(r => setTimeout(r, 8))
-    }
 
-    setIsLoading(false)
+      // Typewriter effect on real response
+      let displayed = ''
+      for (let i = 0; i < response.length; i++) {
+        displayed += response[i]
+        const final = displayed
+        setMessages(prev => prev.map(m =>
+          m.id === loadingMsg.id ? { ...m, content: final } : m
+        ))
+        await new Promise(r => setTimeout(r, 8))
+      }
+    } catch {
+      setMessages(prev => prev.map(m =>
+        m.id === loadingMsg.id
+          ? { ...m, loading: false, content: "Sorry, I'm having trouble connecting right now. Please try again in a moment." }
+          : m
+      ))
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -153,27 +165,44 @@ export default function CareerAssistantPage() {
           <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
             <Lightbulb size={14} className="text-brand-teal" /> AI Career Insights
           </h3>
-          <div className="space-y-3">
-            {insights.map((insight, i) => (
-              <motion.div
-                key={i}
-                whileHover={{ x: 2 }}
-                className={cn(
-                  'p-3 rounded-xl border cursor-pointer transition-all duration-200',
-                  activeInsight === i
-                    ? 'bg-brand-aqua/20 border-brand-teal/30'
-                    : 'bg-white/60 border-slate-100 hover:border-brand-teal/20'
-                )}
-                onClick={() => setActiveInsight(i)}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold text-slate-700">{insight.title}</p>
-                  <span className="text-xs font-bold text-emerald-600">{insight.trend}</span>
+          {insightsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-3 rounded-xl border border-slate-100 space-y-2">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-28" rounded />
+                    <Skeleton className="h-3 w-8" rounded />
+                  </div>
+                  <Skeleton className="h-3 w-full" rounded />
+                  <Skeleton className="h-3 w-4/5" rounded />
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">{insight.desc}</p>
-              </motion.div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {insights.map((insight, i) => (
+                <motion.div
+                  key={i}
+                  whileHover={{ x: 2 }}
+                  className={cn(
+                    'p-3 rounded-xl border cursor-pointer transition-all duration-200',
+                    activeInsight === i
+                      ? 'bg-brand-aqua/20 border-brand-teal/30'
+                      : 'bg-white/60 border-slate-100 hover:border-brand-teal/20'
+                  )}
+                  onClick={() => setActiveInsight(i)}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold text-slate-700">{insight.title}</p>
+                    <span className={cn('text-xs font-bold capitalize', priorityColor[insight.priority] || 'text-slate-500')}>
+                      {insight.priority}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 leading-relaxed">{insight.description}</p>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quick prompts */}
@@ -267,7 +296,13 @@ export default function CareerAssistantPage() {
                   <div className="flex items-center gap-1 px-1">
                     <button className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"><ThumbsUp size={12} /></button>
                     <button className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"><ThumbsDown size={12} /></button>
-                    <button className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"><Copy size={12} /></button>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(msg.content)}
+                      className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"
+                      aria-label="Copy message"
+                    >
+                      <Copy size={12} />
+                    </button>
                   </div>
                 )}
               </div>
