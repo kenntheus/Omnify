@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, MapPin, Briefcase, Building2, Clock, DollarSign,
@@ -49,6 +50,7 @@ export default function JobsPage() {
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
+  const router = useRouter()
 
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState('')
@@ -567,6 +569,7 @@ export default function JobsPage() {
                   variant="secondary"
                   size="lg"
                   leftIcon={<Sparkles size={15} />}
+                  onClick={() => router.push('/cover-letters')}
                 >
                   Generate Cover Letter
                 </Button>

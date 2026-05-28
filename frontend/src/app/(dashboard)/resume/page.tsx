@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -41,6 +42,7 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
 }
 
 export default function ResumePage() {
+  const router = useRouter()
   const [resumes, setResumes] = useState<Resume[]>([])
   const [selected, setSelected] = useState<Resume | null>(null)
   const [loading, setLoading] = useState(true)
@@ -616,7 +618,7 @@ export default function ResumePage() {
                   <p className="text-xs text-slate-500">Use your resume to auto-generate personalized cover letters</p>
                 </div>
               </div>
-              <Button size="sm" rightIcon={<ArrowUpRight size={14} />}>Generate Now</Button>
+              <Button size="sm" rightIcon={<ArrowUpRight size={14} />} onClick={() => router.push('/cover-letters')}>Generate Now</Button>
             </div>
           </motion.div>
         )}
