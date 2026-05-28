@@ -5,19 +5,43 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
   Briefcase, FileText, ClipboardList, TrendingUp, Sparkles,
-  ChevronRight, Calendar, Building2, MapPin, Star, Zap,
-  Trophy, Target, ArrowUpRight, Clock, CheckCircle, AlertCircle
+  ChevronRight, Calendar, Building2, MapPin, Zap,
+  Target, ArrowUpRight, AlertCircle
 } from 'lucide-react'
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Cell, PieChart, Pie
 } from 'recharts'
 import StatsCard from '@/components/dashboard/StatsCard'
+import Skeleton from '@/components/ui/Skeleton'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
-import { cn, getStatusConfig, timeAgo } from '@/lib/utils'
+import { cn, getStatusConfig, formatSalary, formatDateTime } from '@/lib/utils'
+import { applicationsAPI, jobsAPI } from '@/lib/api'
+import { useAuthStore } from '@/store/useAuthStore'
+import type { ApplicationStats, Job, Application } from '@/types'
 
-// ── Mock data ──────────────────────────────────────────────────
+// ── Logo color helper ──────────────────────────────────────────
+const LOGO_GRADIENTS = [
+  'from-violet-500 to-purple-600',
+  'from-blue-500 to-indigo-600',
+  'from-teal-500 to-cyan-600',
+  'from-emerald-500 to-green-600',
+  'from-orange-500 to-amber-600',
+  'from-rose-500 to-pink-600',
+  'from-slate-600 to-slate-800',
+  'from-indigo-400 to-blue-500',
+]
+
+function getLogoColor(name: string): string {
+  const code = (name.charCodeAt(0) || 0) + (name.charCodeAt(1) || 0)
+  return LOGO_GRADIENTS[code % LOGO_GRADIENTS.length]
+}
+
+// ── Populated application type ─────────────────────────────────
+type PopulatedApplication = Omit<Application, 'jobId'> & { jobId: Job }
+
+// ── Static weekly chart data ───────────────────────────────────
 const weeklyData = [
   { day: 'Mon', applied: 3, responses: 1, interviews: 0 },
   { day: 'Tue', applied: 5, responses: 2, interviews: 1 },
@@ -26,47 +50,6 @@ const weeklyData = [
   { day: 'Fri', applied: 4, responses: 2, interviews: 2 },
   { day: 'Sat', applied: 1, responses: 0, interviews: 0 },
   { day: 'Sun', applied: 0, responses: 1, interviews: 1 },
-]
-
-const statusData = [
-  { name: 'Applied', value: 24, color: '#3b82f6' },
-  { name: 'Reviewing', value: 8, color: '#8b5cf6' },
-  { name: 'Interview', value: 5, color: '#64b6ac' },
-  { name: 'Offer', value: 2, color: '#10b981' },
-  { name: 'Rejected', value: 11, color: '#ef4444' },
-]
-
-const recommendedJobs = [
-  {
-    id: '1', title: 'Senior Frontend Engineer', company: 'Stripe',
-    location: 'San Francisco, CA', remote: 'hybrid',
-    salary: '$160K–$200K', matchScore: 96,
-    logo: 'S', logoColor: 'from-violet-500 to-purple-600', postedAt: '2024-12-10T08:00:00Z',
-  },
-  {
-    id: '2', title: 'React Developer', company: 'Vercel',
-    location: 'Remote', remote: 'remote',
-    salary: '$140K–$175K', matchScore: 92,
-    logo: '▲', logoColor: 'from-slate-700 to-slate-900', postedAt: '2024-12-11T10:00:00Z',
-  },
-  {
-    id: '3', title: 'Full Stack Engineer', company: 'Linear',
-    location: 'New York, NY', remote: 'hybrid',
-    salary: '$130K–$165K', matchScore: 88,
-    logo: 'L', logoColor: 'from-indigo-500 to-blue-600', postedAt: '2024-12-09T14:00:00Z',
-  },
-]
-
-const recentApplications = [
-  { id: '1', company: 'Notion', title: 'Frontend Engineer', status: 'interview', date: '2024-12-08T09:00:00Z' },
-  { id: '2', company: 'Figma', title: 'React Developer', status: 'reviewing', date: '2024-12-07T14:00:00Z' },
-  { id: '3', company: 'GitHub', title: 'Senior Engineer', status: 'applied', date: '2024-12-06T11:00:00Z' },
-  { id: '4', company: 'OpenAI', title: 'Full Stack Dev', status: 'rejected', date: '2024-12-05T16:00:00Z' },
-]
-
-const upcomingInterviews = [
-  { company: 'Notion', role: 'Frontend Engineer', type: 'Technical', date: 'Dec 15 • 2:00 PM', logo: 'N', logoColor: 'from-slate-700 to-slate-900' },
-  { company: 'Stripe', role: 'Senior Developer', type: 'Culture Fit', date: 'Dec 17 • 10:30 AM', logo: 'S', logoColor: 'from-violet-500 to-purple-600' },
 ]
 
 // ── Custom Tooltip ─────────────────────────────────────────────
@@ -86,7 +69,14 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export default function DashboardPage() {
+  const { user } = useAuthStore()
   const [greeting, setGreeting] = useState('Good morning')
+  const [stats, setStats] = useState<ApplicationStats | null>(null)
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([])
+  const [recentApps, setRecentApps] = useState<PopulatedApplication[]>([])
+  const [interviewApps, setInterviewApps] = useState<PopulatedApplication[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -94,6 +84,38 @@ export default function DashboardPage() {
     else if (hour < 17) setGreeting('Good afternoon')
     else setGreeting('Good evening')
   }, [])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statsRes, jobsRes, appsRes, interviewRes] = await Promise.all([
+          applicationsAPI.getStats(),
+          jobsAPI.getRecommended({ limit: 3 }),
+          applicationsAPI.getAll({ limit: 4 }),
+          applicationsAPI.getAll({ status: 'interview', limit: 3 }),
+        ])
+        setStats(statsRes.data.data)
+        setRecommendedJobs(jobsRes.data.data)
+        setRecentApps(appsRes.data.data as PopulatedApplication[])
+        setInterviewApps(interviewRes.data.data as PopulatedApplication[])
+      } catch {
+        setError('Failed to load dashboard data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const firstName = user?.name?.split(' ')[0] || 'there'
+
+  const statusData = stats ? [
+    { name: 'Applied', value: stats.applied, color: '#3b82f6' },
+    { name: 'Pending', value: stats.pending, color: '#8b5cf6' },
+    { name: 'Interview', value: stats.interviews, color: '#64b6ac' },
+    { name: 'Offer', value: stats.offers, color: '#10b981' },
+    { name: 'Rejected', value: stats.rejected, color: '#ef4444' },
+  ].filter(s => s.value > 0) : []
 
   return (
     <div className="space-y-6">
@@ -106,11 +128,13 @@ export default function DashboardPage() {
       >
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
-            {greeting}, <span className="gradient-text">Alex</span> 👋
+            {greeting}, <span className="gradient-text">{firstName}</span> 👋
           </h1>
           <p className="text-slate-500 text-sm mt-1">
-            You have <strong className="text-slate-700">3 interviews</strong> this week and{' '}
-            <strong className="text-slate-700">12 new job matches</strong>
+            {stats
+              ? <>You have <strong className="text-slate-700">{stats.interviews} interview{stats.interviews !== 1 ? 's' : ''}</strong> scheduled and <strong className="text-slate-700">{stats.total} total applications</strong></>
+              : 'Welcome to your job search dashboard'
+            }
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -143,47 +167,64 @@ export default function DashboardPage() {
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold text-slate-800 mb-1">
-              🎯 AI Insight: Your resume is 87% ATS-compatible
+              AI Insight: Boost your application success rate
             </p>
             <p className="text-sm text-slate-600">
-              Adding keywords like <strong>&ldquo;TypeScript&rdquo;</strong>, <strong>&ldquo;GraphQL&rdquo;</strong>, and <strong>&ldquo;system design&rdquo;</strong> could boost your match scores by up to <strong>23%</strong>
+              Upload your resume and let Omnify analyze it for ATS compatibility, keyword gaps, and personalized improvement suggestions.
             </p>
           </div>
           <Link href="/resume">
             <Button variant="secondary" size="sm" rightIcon={<ArrowUpRight size={14} />}>
-              Improve Resume
+              Analyze Resume
             </Button>
           </Link>
         </div>
       </motion.div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard
-          title="Total Applied" value={50} icon={Briefcase}
-          change={12} changeLabel="vs last week"
-          iconColor="text-blue-600" iconBg="bg-blue-50"
-          delay={0.1}
-        />
-        <StatsCard
-          title="In Progress" value={13} icon={Target}
-          iconColor="text-amber-600" iconBg="bg-amber-50"
-          changeLabel="Active applications"
-          delay={0.15}
-        />
-        <StatsCard
-          title="Interviews" value={5} icon={Calendar}
-          change={25} changeLabel="This month"
-          iconColor="text-brand-teal" iconBg="bg-brand-aqua/40"
-          delay={0.2}
-        />
-        <StatsCard
-          title="Response Rate" value={32} suffix="%" icon={TrendingUp}
-          change={8} changeLabel="Industry avg: 20%"
-          iconColor="text-emerald-600" iconBg="bg-emerald-50"
-          delay={0.25}
-        />
-      </div>
+      {error ? (
+        <div className="glass-card p-6 flex items-center gap-3 text-red-600">
+          <AlertCircle size={18} />
+          <span className="text-sm">{error}</span>
+        </div>
+      ) : loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass-card p-6 space-y-4">
+              <Skeleton className="h-10 w-10" rounded />
+              <Skeleton className="h-4 w-3/4" rounded />
+              <Skeleton className="h-8 w-1/2" rounded />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
+            title="Total Applied" value={stats?.total ?? 0} icon={Briefcase}
+            iconColor="text-blue-600" iconBg="bg-blue-50"
+            changeLabel="All time applications"
+            delay={0.1}
+          />
+          <StatsCard
+            title="In Progress" value={(stats?.pending ?? 0) + (stats?.applied ?? 0)} icon={Target}
+            iconColor="text-amber-600" iconBg="bg-amber-50"
+            changeLabel="Pending & applied"
+            delay={0.15}
+          />
+          <StatsCard
+            title="Interviews" value={stats?.interviews ?? 0} icon={Calendar}
+            iconColor="text-brand-teal" iconBg="bg-brand-aqua/40"
+            changeLabel="Scheduled interviews"
+            delay={0.2}
+          />
+          <StatsCard
+            title="Response Rate" value={stats?.responseRate ?? 0} suffix="%" icon={TrendingUp}
+            changeLabel="Based on responses received"
+            iconColor="text-emerald-600" iconBg="bg-emerald-50"
+            delay={0.25}
+          />
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid lg:grid-cols-3 gap-4">
@@ -233,41 +274,58 @@ export default function DashboardPage() {
           className="glass-card p-6"
         >
           <h3 className="text-sm font-semibold text-slate-700 mb-1">Application Status</h3>
-          <p className="text-xs text-slate-400 mb-4">Total: 50 applications</p>
+          <p className="text-xs text-slate-400 mb-4">
+            Total: {loading ? '…' : (stats?.total ?? 0)} applications
+          </p>
 
-          <ResponsiveContainer width="100%" height={140}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                innerRadius={45}
-                outerRadius={65}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {statusData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
+          {!loading && statusData.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={140}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={65}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {statusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, name) => [value, name]}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 mt-3">
+                {statusData.map((s) => (
+                  <div key={s.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: s.color }} />
+                      <span className="text-slate-600">{s.name}</span>
+                    </div>
+                    <span className="font-semibold text-slate-700">{s.value}</span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip
-                formatter={(value, name) => [value, name]}
-                contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-
-          <div className="space-y-2 mt-3">
-            {statusData.map((s) => (
-              <div key={s.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: s.color }} />
-                  <span className="text-slate-600">{s.name}</span>
-                </div>
-                <span className="font-semibold text-slate-700">{s.value}</span>
               </div>
-            ))}
-          </div>
+            </>
+          ) : !loading ? (
+            <div className="flex flex-col items-center justify-center h-32 text-slate-400">
+              <ClipboardList size={28} className="mb-2 opacity-40" />
+              <p className="text-xs">No applications yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Skeleton className="h-32 w-32 mx-auto" circle />
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-3 w-full" rounded />
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
 
@@ -293,59 +351,85 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3">
-            {recommendedJobs.map((job) => (
-              <motion.div
-                key={job.id}
-                whileHover={{ x: 2 }}
-                transition={{ duration: 0.15 }}
-                className="flex items-center gap-4 p-3.5 rounded-xl hover:bg-slate-50/80 transition-colors cursor-pointer group"
-              >
-                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${job.logoColor} flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-sm`}>
-                  {job.logo}
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-3.5">
+                  <Skeleton className="w-11 h-11 flex-shrink-0" rounded />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-2/3" rounded />
+                    <Skeleton className="h-3 w-1/2" rounded />
+                    <Skeleton className="h-3 w-1/3" rounded />
+                  </div>
+                  <Skeleton className="h-6 w-20" rounded />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{job.title}</p>
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                      <Building2 size={10} /> {job.company}
-                    </span>
-                    <span className="text-xs text-slate-400 flex items-center gap-1">
-                      <MapPin size={10} /> {job.location}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs font-medium text-slate-600">{job.salary}</span>
-                    <Badge variant={job.remote === 'remote' ? 'teal' : 'info'} className="text-[10px]">
-                      {job.remote}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <div className={cn(
-                    'text-xs font-bold px-2.5 py-1 rounded-lg',
-                    job.matchScore >= 90 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                  )}>
-                    {job.matchScore}% match
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-teal"
+              ))
+            ) : recommendedJobs.length > 0 ? (
+              recommendedJobs.map((job) => {
+                const companyName = job.company?.name || 'Unknown'
+                const logoColor = getLogoColor(companyName)
+                const salary = job.salary
+                  ? formatSalary(job.salary.min, job.salary.max, job.salary.currency, job.salary.period)
+                  : null
+                return (
+                  <motion.div
+                    key={job._id}
+                    whileHover={{ x: 2 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-4 p-3.5 rounded-xl hover:bg-slate-50/80 transition-colors cursor-pointer group"
                   >
-                    Apply
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+                    <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${logoColor} flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-sm`}>
+                      {companyName[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{job.title}</p>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Building2 size={10} /> {companyName}
+                        </span>
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <MapPin size={10} /> {job.location}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {salary && <span className="text-xs font-medium text-slate-600">{salary}</span>}
+                        <Badge variant={job.remote === 'remote' ? 'teal' : 'info'} className="text-[10px]">
+                          {job.remote}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      {job.matchScore != null && (
+                        <div className={cn(
+                          'text-xs font-bold px-2.5 py-1 rounded-lg',
+                          job.matchScore >= 90 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                        )}>
+                          {job.matchScore}% match
+                        </div>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-teal"
+                      >
+                        Apply
+                      </Button>
+                    </div>
+                  </motion.div>
+                )
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                <Briefcase size={28} className="mb-2 opacity-40" />
+                <p className="text-xs">No recommendations yet — update your profile skills</p>
+              </div>
+            )}
           </div>
 
           <Link
             href="/jobs"
             className="mt-4 block text-center text-xs font-medium text-brand-teal hover:underline py-2"
           >
-            View 47 more matching jobs →
+            Browse all jobs →
           </Link>
         </motion.div>
 
@@ -362,21 +446,48 @@ export default function DashboardPage() {
               <h3 className="text-sm font-semibold text-slate-700">Upcoming Interviews</h3>
               <Calendar size={14} className="text-slate-400" />
             </div>
-            {upcomingInterviews.map((interview, i) => (
-              <div key={i} className={cn('flex items-center gap-3 py-3', i > 0 && 'border-t border-slate-100')}>
-                <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${interview.logoColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-                  {interview.logo}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-800 truncate">{interview.role}</p>
-                  <p className="text-xs text-slate-500">{interview.company} · {interview.type}</p>
-                  <p className="text-xs text-brand-teal font-medium mt-0.5">{interview.date}</p>
-                </div>
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2">
+                    <Skeleton className="w-9 h-9 flex-shrink-0" rounded />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-3/4" rounded />
+                      <Skeleton className="h-3 w-1/2" rounded />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : interviewApps.length > 0 ? (
+              interviewApps.map((app, i) => {
+                const job = app.jobId as Job | null
+                const companyName = job?.company?.name || 'Unknown'
+                const logoColor = getLogoColor(companyName)
+                const interview = app.interviews?.[0]
+                return (
+                  <div key={app._id} className={cn('flex items-center gap-3 py-3', i > 0 && 'border-t border-slate-100')}>
+                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${logoColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                      {companyName[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 truncate">{job?.title || 'Interview'}</p>
+                      <p className="text-xs text-slate-500">{companyName} · {interview?.type || 'Interview'}</p>
+                      <p className="text-xs text-brand-teal font-medium mt-0.5">
+                        {interview?.scheduledAt ? formatDateTime(interview.scheduledAt) : 'Date TBD'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                <Calendar size={24} className="mb-1.5 opacity-40" />
+                <p className="text-xs">No interviews scheduled</p>
+              </div>
+            )}
             <Link href="/applications" className="block mt-2">
               <Button variant="outline" size="xs" fullWidth rightIcon={<ChevronRight size={12} />}>
-                View calendar
+                View applications
               </Button>
             </Link>
           </motion.div>
@@ -394,22 +505,44 @@ export default function DashboardPage() {
                 <button className="text-xs text-brand-teal hover:underline cursor-pointer">View all</button>
               </Link>
             </div>
-            <div className="space-y-2.5">
-              {recentApplications.map((app) => {
-                const sc = getStatusConfig(app.status)
-                return (
-                  <div key={app.id} className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-slate-800 truncate">{app.title}</p>
-                      <p className="text-xs text-slate-500">{app.company}</p>
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-3/4" rounded />
+                      <Skeleton className="h-3 w-1/2" rounded />
                     </div>
-                    <span className={cn('badge text-[10px] flex-shrink-0', sc.bg, sc.color)}>
-                      {sc.label}
-                    </span>
+                    <Skeleton className="h-5 w-16 flex-shrink-0" rounded />
                   </div>
-                )
-              })}
-            </div>
+                ))}
+              </div>
+            ) : recentApps.length > 0 ? (
+              <div className="space-y-2.5">
+                {recentApps.map((app) => {
+                  const sc = getStatusConfig(app.status)
+                  const job = app.jobId as Job | null
+                  const title = job?.title || 'Unknown Role'
+                  const company = job?.company?.name || 'Unknown'
+                  return (
+                    <div key={app._id} className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">{title}</p>
+                        <p className="text-xs text-slate-500">{company}</p>
+                      </div>
+                      <span className={cn('badge text-[10px] flex-shrink-0', sc.bg, sc.color)}>
+                        {sc.label}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                <ClipboardList size={24} className="mb-1.5 opacity-40" />
+                <p className="text-xs">No applications yet</p>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
