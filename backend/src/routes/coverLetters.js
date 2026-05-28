@@ -7,17 +7,32 @@ const axios = require('axios')
 const CoverLetter = require('../models/CoverLetter')
 
 router.post('/generate', protect, asyncHandler(async (req, res) => {
-  const { jobId, resumeId, tone = 'professional' } = req.body
+  // jobId + resumeId for AI-linked generation; title + company for free-text flow
+  const { jobId, resumeId, tone = 'professional', title, company } = req.body
+
+  // Resolve display values for the fallback template
+  let jobTitle = title || '[Position]'
+  let companyName = company || '[Company]'
+  if (jobId) {
+    try {
+      const Job = require('../models/Job')
+      const job = await Job.findById(jobId).select('title company')
+      if (job) {
+        jobTitle = job.title
+        companyName = job.company?.name || companyName
+      }
+    } catch { /* ignore */ }
+  }
 
   try {
     const aiResp = await axios.post(
       `${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/generate-cover-letter`,
-      { jobId, resumeId, tone, userId: req.user._id },
+      { jobId, resumeId, tone, userId: req.user._id, title: jobTitle, company: companyName },
       { timeout: 30000 }
     )
     const cover = await CoverLetter.create({
       userId: req.user._id,
-      jobId,
+      jobId: jobId || undefined,
       content: aiResp.data.content,
       tone,
       used: false,
@@ -25,23 +40,24 @@ router.post('/generate', protect, asyncHandler(async (req, res) => {
     })
     res.status(201).json({ success: true, data: cover })
   } catch {
-    // Fallback mock cover letter
-    const mockContent = `Dear Hiring Manager,
+    const skills = req.user.profile?.skills?.slice(0, 3).join(', ') || 'React, TypeScript, and Node.js'
+    const years = req.user.profile?.experience?.length || 5
+    const mockContent = `Dear ${companyName} Hiring Team,
 
-I am writing to express my strong interest in the [Position] role at [Company]. With ${req.user.profile?.experience?.length || 5}+ years of experience in software engineering and a deep expertise in ${req.user.profile?.skills?.slice(0, 3).join(', ') || 'React, TypeScript, and Node.js'}, I am confident that I would be a valuable addition to your team.
+I am writing to express my strong interest in the ${jobTitle} role at ${companyName}. With ${years}+ years of experience in software engineering and deep expertise in ${skills}, I am confident I would be a valuable addition to your team.
 
-Throughout my career, I have consistently delivered high-quality software solutions that drive business value. My experience includes building scalable web applications, leading engineering teams, and collaborating cross-functionally to deliver products that users love.
+Throughout my career I have consistently delivered high-quality software solutions that drive business value — building scalable web applications, leading cross-functional initiatives, and shipping products that users love.
 
-What excites me most about [Company] is your commitment to [Company's mission]. I believe my background aligns perfectly with your team's needs, and I am eager to contribute to your continued growth and success.
+What excites me most about ${companyName} is the opportunity to work on meaningful challenges at scale. I believe my background aligns closely with your team's needs and I would welcome the chance to contribute to your continued growth.
 
-I would welcome the opportunity to discuss how my skills and experience can benefit [Company]. Thank you for considering my application.
+Thank you for considering my application. I look forward to speaking with you.
 
 Best regards,
 ${req.user.name}`
 
     const cover = await CoverLetter.create({
       userId: req.user._id,
-      jobId,
+      jobId: jobId || undefined,
       content: mockContent,
       tone,
       used: false,
