@@ -45,6 +45,25 @@ class ApplicationAutomation:
         if self.playwright:
             await self.playwright.stop()
 
+    async def download_resume(self, url: str) -> str:
+        """Download a resume from a URL to a temp file; returns the local path."""
+        import tempfile
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "")
+                suffix = ".pdf" if "pdf" in content_type else ".docx"
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+                tmp.write(response.content)
+                tmp.close()
+                logger.info(f"Resume downloaded to {tmp.name}")
+                return tmp.name
+        except Exception as e:
+            logger.warning(f"Could not download resume from {url}: {e}")
+            return ""
+
     async def apply_to_job(
         self,
         job_url: str,

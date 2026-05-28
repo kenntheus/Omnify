@@ -117,4 +117,90 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Application deleted' })
 }))
 
+// ─── Auto-apply via AI browser automation ────────────────────
+router.post('/auto-apply', protect, asyncHandler(async (req, res) => {
+  const { jobId, resumeId, coverLetter, customAnswers } = req.body
+  if (!jobId) return res.status(400).json({ success: false, message: 'jobId is required' })
+
+  const Job = require('../models/Job')
+  const Resume = require('../models/Resume')
+  const axios = require('axios')
+
+  const [job, existingApp] = await Promise.all([
+    Job.findById(jobId),
+    Application.findOne({ userId: req.user._id, jobId, status: { $ne: 'saved' } }),
+  ])
+
+  if (!job) return res.status(404).json({ success: false, message: 'Job not found' })
+  if (existingApp) return res.status(400).json({ success: false, message: 'Already applied to this job' })
+  if (!job.sourceUrl) return res.status(400).json({ success: false, message: 'No external application URL available for this job' })
+
+  // Resolve resume: provided > default > most recent
+  const resume = resumeId
+    ? await Resume.findOne({ _id: resumeId, userId: req.user._id })
+    : (await Resume.findOne({ userId: req.user._id, isDefault: true })) ||
+      (await Resume.findOne({ userId: req.user._id }).sort({ createdAt: -1 }))
+
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000'
+  const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000'
+
+  const userData = {
+    name: req.user.name,
+    email: req.user.email,
+    phone: req.user.profile?.phone || '',
+    linkedin: req.user.profile?.linkedin || '',
+    portfolio: req.user.profile?.portfolio || '',
+  }
+
+  let automationResult = { success: false, message: 'Automation service unavailable' }
+  try {
+    const aiResponse = await axios.post(
+      `${aiUrl}/automation/apply`,
+      {
+        jobUrl: job.sourceUrl,
+        userData,
+        resumeUrl: resume ? `${backendUrl}${resume.fileUrl}` : null,
+        coverLetter,
+        customAnswers,
+      },
+      { timeout: 60000 }
+    )
+    automationResult = aiResponse.data.data || aiResponse.data
+  } catch {
+    // AI service down — still record the application
+  }
+
+  // Upgrade a 'saved' entry → 'applied', or create fresh
+  const savedApp = await Application.findOne({ userId: req.user._id, jobId, status: 'saved' })
+  let application
+
+  if (savedApp) {
+    savedApp.status = 'applied'
+    savedApp.automatedApply = true
+    savedApp.appliedAt = new Date()
+    if (resume) savedApp.resumeId = resume._id
+    if (coverLetter) savedApp.coverLetter = coverLetter
+    savedApp.timeline.push({ status: 'applied', automated: true, note: 'Auto-applied via Omnify' })
+    application = await savedApp.save()
+  } else {
+    application = await Application.create({
+      userId: req.user._id,
+      jobId,
+      status: 'applied',
+      automatedApply: true,
+      appliedAt: new Date(),
+      resumeId: resume?._id,
+      coverLetter,
+      customAnswers,
+      timeline: [{ status: 'applied', automated: true, note: 'Auto-applied via Omnify' }],
+    })
+  }
+
+  res.status(201).json({
+    success: true,
+    message: automationResult.success ? 'Auto-apply completed successfully' : 'Application recorded (automation unavailable)',
+    data: { application, automation: automationResult },
+  })
+}))
+
 module.exports = router
