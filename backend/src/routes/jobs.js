@@ -84,6 +84,15 @@ router.get('/recommended', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: paginated })
 }))
 
+// ─── Get saved jobs ───────────────────────────────────────────
+// Must be before /:id to avoid Express matching 'saved' as an ID
+router.get('/saved', protect, asyncHandler(async (req, res) => {
+  const saved = await Application.find({ userId: req.user._id, status: 'saved' })
+    .populate('jobId')
+    .sort({ createdAt: -1 })
+  res.json({ success: true, data: saved.map(s => ({ job: s.jobId, savedAt: s.createdAt })) })
+}))
+
 // ─── Get job by ID ────────────────────────────────────────────
 router.get('/:id', protect, asyncHandler(async (req, res) => {
   const job = await Job.findByIdAndUpdate(
@@ -122,14 +131,6 @@ router.delete('/:id/save', protect, asyncHandler(async (req, res) => {
   })
   if (!deleted) return res.status(404).json({ success: false, message: 'Saved job not found' })
   res.json({ success: true, message: 'Job removed from saved' })
-}))
-
-// ─── Get saved jobs ───────────────────────────────────────────
-router.get('/saved', protect, asyncHandler(async (req, res) => {
-  const saved = await Application.find({ userId: req.user._id, status: 'saved' })
-    .populate('jobId')
-    .sort({ createdAt: -1 })
-  res.json({ success: true, data: saved.map(s => s.jobId) })
 }))
 
 module.exports = router
