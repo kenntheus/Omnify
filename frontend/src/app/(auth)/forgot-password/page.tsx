@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, ArrowRight, ArrowLeft, Mail, CheckCircle } from 'lucide-react'
+import { Sparkles, ArrowRight, ArrowLeft, Mail, CheckCircle, Copy, Check } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import toast from 'react-hot-toast'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { authAPI } from '@/lib/api'
 
 const schema = z.object({
   email: z.string().min(1, 'Email is required').email('Enter a valid email'),
@@ -20,6 +22,8 @@ export default function ForgotPasswordPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submittedEmail, setSubmittedEmail] = useState('')
   const [loading, setLoading] = useState(false)
+  const [devResetUrl, setDevResetUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -27,10 +31,30 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1000))
-    setSubmittedEmail(data.email)
-    setSubmitted(true)
-    setLoading(false)
+    try {
+      const res = await authAPI.forgotPassword(data.email)
+      setSubmittedEmail(data.email)
+      setSubmitted(true)
+
+      // Dev mode: backend returns the raw token so we can test without email
+      const token = (res.data as { data?: { resetToken?: string } })?.data?.resetToken
+      if (token) {
+        setDevResetUrl(`${window.location.origin}/reset-password?token=${token}`)
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message || 'Something went wrong. Please try again.'
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const copyResetUrl = () => {
+    if (!devResetUrl) return
+    navigator.clipboard.writeText(devResetUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -45,7 +69,6 @@ export default function ForgotPasswordPage() {
             transition={{ duration: 0.4, ease: 'easeOut' }}
           >
             <div className="glass-card p-8">
-              {/* Logo */}
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand">
                   <Sparkles size={16} className="text-white" />
@@ -53,7 +76,6 @@ export default function ForgotPasswordPage() {
                 <span className="text-xl font-bold text-slate-800">Omnify</span>
               </div>
 
-              {/* Icon */}
               <div className="w-12 h-12 rounded-2xl bg-brand-aqua/40 flex items-center justify-center mb-5">
                 <Mail size={22} className="text-brand-teal" />
               </div>
@@ -61,7 +83,7 @@ export default function ForgotPasswordPage() {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-slate-800">Forgot your password?</h2>
                 <p className="text-slate-500 text-sm mt-1.5 leading-relaxed">
-                  No worries. Enter your email and we'll send you a reset link.
+                  No worries. Enter your email and we&apos;ll send you a reset link.
                 </p>
               </div>
 
@@ -106,8 +128,7 @@ export default function ForgotPasswordPage() {
             transition={{ duration: 0.4, ease: 'easeOut' }}
           >
             <div className="glass-card p-8 text-center">
-              {/* Logo */}
-              <div className="flex items-center gap-3 mb-8 justify-center">
+              <div className="flex items-center justify-center gap-3 mb-8">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center shadow-brand">
                   <Sparkles size={16} className="text-white" />
                 </div>
@@ -129,10 +150,31 @@ export default function ForgotPasswordPage() {
               </p>
               <p className="text-sm font-semibold text-slate-800 mb-6">{submittedEmail}</p>
 
+              {/* Dev-mode helper — only appears when backend returns the token */}
+              {devResetUrl && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-left"
+                >
+                  <p className="text-xs font-semibold text-amber-700 mb-2">
+                    Dev mode — no email configured
+                  </p>
+                  <p className="text-xs text-amber-700/80 mb-2 break-all font-mono">{devResetUrl}</p>
+                  <button
+                    onClick={copyResetUrl}
+                    className="flex items-center gap-1.5 text-xs font-medium text-amber-700 hover:text-amber-900 cursor-pointer"
+                  >
+                    {copied ? <Check size={12} /> : <Copy size={12} />}
+                    {copied ? 'Copied!' : 'Copy reset link'}
+                  </button>
+                </motion.div>
+              )}
+
               <p className="text-xs text-slate-400 mb-6">
-                Didn't receive it? Check your spam folder or{' '}
+                Didn&apos;t receive it? Check your spam folder or{' '}
                 <button
-                  onClick={() => setSubmitted(false)}
+                  onClick={() => { setSubmitted(false); setDevResetUrl(null) }}
                   className="text-brand-teal hover:underline cursor-pointer font-medium"
                 >
                   try again

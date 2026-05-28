@@ -124,9 +124,12 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false })
 
   // In production, send email here
-  console.log('Password reset token:', token)
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`
+  console.log('Password reset URL:', resetUrl)
 
-  res.json({ success: true, message: 'Password reset link sent to your email' })
+  // Expose token in dev so the UI can surface it without email
+  const data = process.env.NODE_ENV !== 'production' ? { resetToken: token } : undefined
+  res.json({ success: true, message: 'Password reset link sent to your email', data })
 })
 
 // ─── Reset password ───────────────────────────────────────────
