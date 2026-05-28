@@ -4,6 +4,7 @@ Extracts skills, experience, education and calculates ATS compatibility score.
 Uses NLP to parse resume content and match against job requirements.
 """
 
+import io
 import re
 import asyncio
 from typing import Optional, Dict, Any, List
@@ -83,13 +84,21 @@ class ResumeAnalyzer:
             patterns[category] = [re.compile(r'\b' + re.escape(s) + r'\b', re.IGNORECASE) for s in skills]
         return patterns
 
-    async def analyze(self, resume_url: Optional[str] = None, resume_type: str = "pdf") -> Dict[str, Any]:
-        """Main analysis entry point"""
-        # In production: extract text from resume file
-        # For now: return comprehensive mock analysis with real scoring logic
-        await asyncio.sleep(0.1)  # Simulate processing
+    async def analyze(
+        self,
+        resume_url: Optional[str] = None,
+        resume_type: str = "pdf",
+        file_content: Optional[bytes] = None,
+    ) -> Dict[str, Any]:
+        """Main analysis entry point. Accepts either a URL or raw file bytes."""
+        await asyncio.sleep(0.1)
 
-        text = await self._extract_text(resume_url, resume_type) if resume_url else ""
+        if file_content:
+            text = self._parse_bytes(file_content, resume_type)
+        elif resume_url:
+            text = await self._extract_text(resume_url, resume_type)
+        else:
+            text = ""
 
         analysis = ResumeAnalysis()
         analysis.skills = self._extract_skills(text)
@@ -126,11 +135,31 @@ class ResumeAnalyzer:
             "improvements": analysis.improvements,
         }
 
-    async def _extract_text(self, url: str, file_type: str) -> str:
-        """Extract text from resume file"""
-        # In production: download file from URL and parse
-        # Using pdfplumber for PDFs, python-docx for DOCX
+    def _parse_bytes(self, content: bytes, file_type: str) -> str:
+        """Extract text directly from file bytes."""
+        try:
+            if file_type == "pdf":
+                import pdfplumber
+                with pdfplumber.open(io.BytesIO(content)) as pdf:
+                    return "\n".join(page.extract_text() or "" for page in pdf.pages)
+            elif file_type == "docx":
+                from docx import Document
+                doc = Document(io.BytesIO(content))
+                return "\n".join(p.text for p in doc.paragraphs)
+        except Exception:
+            pass
         return ""
+
+    async def _extract_text(self, url: str, file_type: str) -> str:
+        """Download file from URL and extract text."""
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                return self._parse_bytes(response.content, file_type)
+        except Exception:
+            return ""
 
     def _extract_skills(self, text: str) -> List[Dict]:
         """Extract skills from resume text"""
