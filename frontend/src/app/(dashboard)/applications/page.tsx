@@ -4,14 +4,15 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ClipboardList, Search, Calendar, MapPin, Building2,
-  Plus, TrendingUp, Eye, Star, Zap, AlertCircle, Trash2
+  Plus, TrendingUp, Eye, Star, Zap, AlertCircle, Trash2,
+  ChevronDown, Loader2, X
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Button from '@/components/ui/Button'
 import Skeleton from '@/components/ui/Skeleton'
 import { cn, getStatusConfig, formatDate, timeAgo } from '@/lib/utils'
 import { applicationsAPI } from '@/lib/api'
-import type { Application, ApplicationStatus, ApplicationStats, Job } from '@/types'
+import type { Application, ApplicationStatus, ApplicationStats, Job, Interview } from '@/types'
 import toast from 'react-hot-toast'
 
 // jobId is populated by Mongoose .populate('jobId') — it's a full Job at runtime
@@ -78,6 +79,18 @@ export default function ApplicationsPage() {
   const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+  const [statusMenuId, setStatusMenuId] = useState<string | null>(null)
+  const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<string>>(new Set())
+  const [showInterviewModal, setShowInterviewModal] = useState(false)
+  const [interviewApp, setInterviewApp] = useState<PopulatedApplication | null>(null)
+  const [interviewForm, setInterviewForm] = useState({
+    type: 'video' as Interview['type'],
+    scheduledAt: '',
+    meetingLink: '',
+    interviewer: '',
+    notes: '',
+  })
+  const [schedulingInterview, setSchedulingInterview] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -147,8 +160,163 @@ export default function ApplicationsPage() {
   const tabCount = (tab: ApplicationStatus | 'all') =>
     tab === 'all' ? applications.length : applications.filter(a => a.status === tab).length
 
+  const updateStatus = async (app: PopulatedApplication, newStatus: ApplicationStatus) => {
+    setStatusMenuId(null)
+    setUpdatingStatusIds(prev => new Set(prev).add(app._id))
+    setApplications(prev => prev.map(a => a._id === app._id ? { ...a, status: newStatus } : a))
+    try {
+      await applicationsAPI.updateStatus(app._id, newStatus)
+      const statsRes = await applicationsAPI.getStats()
+      setStats(statsRes.data.data)
+    } catch {
+      setApplications(prev => prev.map(a => a._id === app._id ? { ...a, status: app.status } : a))
+      toast.error('Failed to update status')
+    } finally {
+      setUpdatingStatusIds(prev => { const next = new Set(prev); next.delete(app._id); return next })
+    }
+  }
+
+  const scheduleInterview = async () => {
+    if (!interviewApp || !interviewForm.scheduledAt) return
+    setSchedulingInterview(true)
+    try {
+      await applicationsAPI.addInterview(interviewApp._id, {
+        type: interviewForm.type,
+        scheduledAt: new Date(interviewForm.scheduledAt).toISOString(),
+        meetingLink: interviewForm.meetingLink || undefined,
+        interviewer: interviewForm.interviewer || undefined,
+        notes: interviewForm.notes || undefined,
+        completed: false,
+      })
+      const [appsRes, statsRes] = await Promise.all([
+        applicationsAPI.getAll({ limit: 100 }),
+        applicationsAPI.getStats(),
+      ])
+      setApplications((appsRes.data.data as PopulatedApplication[]).filter(a => a.status !== 'saved'))
+      setStats(statsRes.data.data)
+      setShowInterviewModal(false)
+      setInterviewApp(null)
+      setInterviewForm({ type: 'video', scheduledAt: '', meetingLink: '', interviewer: '', notes: '' })
+      toast.success('Interview scheduled!')
+    } catch {
+      toast.error('Failed to schedule interview')
+    } finally {
+      setSchedulingInterview(false)
+    }
+  }
+
+  // Close status dropdown on outside click
+  const STATUS_OPTIONS: ApplicationStatus[] = [
+    'applied', 'pending', 'reviewing', 'phone_screen', 'interview',
+    'technical', 'final_interview', 'offer', 'accepted', 'rejected', 'withdrawn',
+  ]
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" onClick={() => setStatusMenuId(null)}>
+      {/* ── Interview scheduling modal ────────────────────────── */}
+      <AnimatePresence>
+        {showInterviewModal && interviewApp && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50"
+              onClick={() => setShowInterviewModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.2 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md z-50"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="glass-card p-6 shadow-glass-lg m-4">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-brand-aqua/40 flex items-center justify-center">
+                      <Calendar size={15} className="text-brand-teal" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-800">Schedule Interview</h3>
+                      <p className="text-xs text-slate-500">{interviewApp.jobId?.title || 'Unknown Position'}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowInterviewModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer">
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Interview type</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['phone', 'video', 'onsite', 'technical', 'panel'] as Interview['type'][]).map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setInterviewForm(p => ({ ...p, type: t }))}
+                          className={cn(
+                            'py-2 rounded-xl text-xs font-medium capitalize transition-all cursor-pointer border',
+                            interviewForm.type === t
+                              ? 'bg-brand-teal text-white border-brand-teal'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-brand-teal/40'
+                          )}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Date & time <span className="text-red-400">*</span></label>
+                    <input
+                      type="datetime-local"
+                      value={interviewForm.scheduledAt}
+                      onChange={e => setInterviewForm(p => ({ ...p, scheduledAt: e.target.value }))}
+                      className="w-full px-4 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Meeting link</label>
+                    <input
+                      value={interviewForm.meetingLink}
+                      onChange={e => setInterviewForm(p => ({ ...p, meetingLink: e.target.value }))}
+                      placeholder="https://zoom.us/j/..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-teal/60 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Interviewer name</label>
+                    <input
+                      value={interviewForm.interviewer}
+                      onChange={e => setInterviewForm(p => ({ ...p, interviewer: e.target.value }))}
+                      placeholder="e.g. Jane Smith, Engineering Manager"
+                      className="w-full px-4 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-teal/60 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setShowInterviewModal(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={scheduleInterview}
+                    disabled={!interviewForm.scheduledAt || schedulingInterview}
+                    className="flex-1 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-medium hover:bg-brand-teal/90 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {schedulingInterview && <Loader2 size={14} className="animate-spin" />}
+                    {schedulingInterview ? 'Scheduling…' : 'Schedule Interview'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
           <h1 className="page-title">Applications Tracker</h1>
@@ -289,7 +457,7 @@ export default function ApplicationsPage() {
         </div>
 
         {/* Table header */}
-        <div className="hidden lg:grid grid-cols-[1fr_120px_120px_120px_40px] gap-4 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
+        <div className="hidden lg:grid grid-cols-[1fr_140px_120px_120px_80px] gap-4 px-5 py-3 border-b border-slate-100 bg-slate-50/50">
           <span className="text-xs font-semibold text-slate-500">Position</span>
           <span className="text-xs font-semibold text-slate-500">Status</span>
           <span className="text-xs font-semibold text-slate-500">Applied</span>
@@ -344,7 +512,7 @@ export default function ApplicationsPage() {
                       exit={{ opacity: 0 }}
                       transition={{ delay: Math.min(i * 0.03, 0.2) }}
                       layout
-                      className="flex flex-col lg:grid lg:grid-cols-[1fr_120px_120px_120px_40px] gap-3 lg:gap-4 px-5 py-4 hover:bg-slate-50/80 transition-colors group"
+                      className="flex flex-col lg:grid lg:grid-cols-[1fr_140px_120px_120px_80px] gap-3 lg:gap-4 px-5 py-4 hover:bg-slate-50/80 transition-colors group"
                     >
                       {/* Position */}
                       <div className="flex items-center gap-3">
@@ -370,12 +538,46 @@ export default function ApplicationsPage() {
                         </div>
                       </div>
 
-                      {/* Status */}
-                      <div className="flex items-center">
-                        <span className={cn('badge text-xs', sc.bg, sc.color)}>
-                          <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5', sc.dot)} />
+                      {/* Status — click to update */}
+                      <div className="flex items-center relative" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => setStatusMenuId(statusMenuId === app._id ? null : app._id)}
+                          disabled={updatingStatusIds.has(app._id)}
+                          className={cn('badge text-xs cursor-pointer hover:opacity-80 transition-opacity flex items-center', sc.bg, sc.color)}
+                        >
+                          {updatingStatusIds.has(app._id)
+                            ? <Loader2 size={10} className="animate-spin mr-1.5" />
+                            : <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0', sc.dot)} />
+                          }
                           {sc.label}
-                        </span>
+                          <ChevronDown size={9} className="ml-1 flex-shrink-0" />
+                        </button>
+
+                        <AnimatePresence>
+                          {statusMenuId === app._id && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 4, scale: 0.97 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                              transition={{ duration: 0.12 }}
+                              className="absolute top-full left-0 mt-1 z-30 bg-white rounded-xl shadow-lg border border-slate-200 py-1 min-w-[170px] max-h-60 overflow-y-auto"
+                            >
+                              {STATUS_OPTIONS.filter(s => s !== app.status).map(status => {
+                                const cfg = getStatusConfig(status)
+                                return (
+                                  <button
+                                    key={status}
+                                    onClick={() => updateStatus(app, status)}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                                  >
+                                    <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dot)} />
+                                    {cfg.label}
+                                  </button>
+                                )
+                              })}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
 
                       {/* Applied */}
@@ -390,8 +592,18 @@ export default function ApplicationsPage() {
                         <span className="text-xs text-slate-400">{timeAgo(app.updatedAt)}</span>
                       </div>
 
-                      {/* Delete */}
-                      <div className="hidden lg:flex items-center justify-end">
+                      {/* Actions */}
+                      <div className="hidden lg:flex items-center justify-end gap-1">
+                        {['applied', 'reviewing', 'phone_screen', 'interview', 'technical'].includes(app.status) && (
+                          <button
+                            onClick={() => { setInterviewApp(app); setShowInterviewModal(true) }}
+                            className="p-1.5 rounded-lg text-slate-300 hover:text-brand-teal hover:bg-brand-aqua/30 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                            aria-label="Schedule interview"
+                            title="Schedule interview"
+                          >
+                            <Calendar size={14} />
+                          </button>
+                        )}
                         <button
                           onClick={() => remove(app._id)}
                           disabled={deletingIds.has(app._id)}
