@@ -11,7 +11,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { SkeletonJobCard } from '@/components/ui/Skeleton'
 import { cn, formatSalary, timeAgo } from '@/lib/utils'
-import { jobsAPI } from '@/lib/api'
+import { jobsAPI, applicationsAPI } from '@/lib/api'
 import type { Job } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -48,6 +48,7 @@ export default function JobsPage() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set())
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
+  const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
 
   const [query, setQuery] = useState('')
   const [location, setLocation] = useState('')
@@ -139,6 +140,28 @@ export default function JobsPage() {
       toast.error(wasSaved ? 'Failed to unsave' : 'Failed to save job')
     } finally {
       setSavingIds(prev => { const next = new Set(prev); next.delete(job._id); return next })
+    }
+  }
+
+  const handleAutoApply = async (job: Job) => {
+    if (!job.sourceUrl) {
+      toast.error('No external application URL available for this job')
+      return
+    }
+    setApplyingIds(prev => new Set(prev).add(job._id))
+    try {
+      const res = await applicationsAPI.autoApply(job._id, '', {})
+      const automation = (res.data as { data?: { automation?: { success?: boolean } } }).data?.automation
+      if (automation?.success) {
+        toast.success('Application submitted via auto-apply!')
+      } else {
+        toast.success('Application recorded — automation service unavailable')
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || 'Auto-apply failed. Please try applying manually.')
+    } finally {
+      setApplyingIds(prev => { const next = new Set(prev); next.delete(job._id); return next })
     }
   }
 
@@ -532,9 +555,13 @@ export default function JobsPage() {
                 <Button
                   fullWidth
                   size="lg"
-                  leftIcon={<Zap size={15} />}
+                  leftIcon={applyingIds.has(selectedJob._id) ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+                  loading={applyingIds.has(selectedJob._id)}
+                  disabled={!selectedJob.sourceUrl || applyingIds.has(selectedJob._id)}
+                  onClick={() => handleAutoApply(selectedJob)}
+                  title={!selectedJob.sourceUrl ? 'No external URL available for this job' : undefined}
                 >
-                  One-Click Apply
+                  {applyingIds.has(selectedJob._id) ? 'Applying…' : 'One-Click Apply'}
                 </Button>
                 <Button
                   variant="secondary"
