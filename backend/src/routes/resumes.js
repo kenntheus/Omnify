@@ -62,9 +62,11 @@ router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
 
   try {
+    // Send the full absolute URL so the AI service can download the file
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000'
     const aiResponse = await axios.post(
       `${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/analyze-resume`,
-      { resumeUrl: resume.fileUrl, resumeType: resume.fileType },
+      { resumeUrl: `${backendUrl}${resume.fileUrl}`, resumeType: resume.fileType },
       { timeout: 60000 }
     )
 

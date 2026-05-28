@@ -20,5 +20,6 @@ async def analyze_resume_file(file: UploadFile = File(...)):
     if file.content_type not in ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
         raise HTTPException(400, "Only PDF and DOCX files are supported")
     content = await file.read()
-    result = await analyzer.analyze(file_content=content, resume_type="pdf" if "pdf" in file.content_type else "docx")
+    resume_type = "pdf" if "pdf" in file.content_type else "docx"
+    result = await analyzer.analyze(file_content=content, resume_type=resume_type)
     return {"success": True, "data": result}
