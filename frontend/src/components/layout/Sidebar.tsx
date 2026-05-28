@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, FileText, Briefcase, Bookmark, ClipboardList,
   BrainCircuit, Settings, LogOut, ChevronLeft, ChevronRight,
-  Sparkles, X
+  Sparkles, X, Bell, FileSignature
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -19,7 +19,9 @@ const navItems = [
   { href: '/jobs', icon: Briefcase, label: 'Job Search' },
   { href: '/saved-jobs', icon: Bookmark, label: 'Saved Jobs' },
   { href: '/applications', icon: ClipboardList, label: 'Applications' },
+  { href: '/cover-letters', icon: FileSignature, label: 'Cover Letters' },
   { href: '/career-assistant', icon: BrainCircuit, label: 'AI Assistant' },
+  { href: '/notifications', icon: Bell, label: 'Notifications' },
 ]
 
 const bottomItems = [
