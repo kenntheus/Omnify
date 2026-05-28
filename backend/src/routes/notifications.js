@@ -28,4 +28,9 @@ router.put('/read-all', protect, asyncHandler(async (req, res) => {
   res.json({ success: true })
 }))
 
+router.delete('/:id', protect, asyncHandler(async (req, res) => {
+  await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user._id })
+  res.json({ success: true })
+}))
+
 module.exports = router
