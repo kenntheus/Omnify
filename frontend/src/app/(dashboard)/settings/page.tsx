@@ -7,7 +7,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
-import { userAPI } from '@/lib/api'
+import { userAPI, authAPI } from '@/lib/api'
 import type { UserPreferences } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -52,6 +52,12 @@ export default function SettingsPage() {
     pushNotifications: user?.preferences?.pushNotifications ?? true,
     weeklyDigest: user?.preferences?.weeklyDigest ?? false,
   })
+
+  // ── Security ───────────────────────────────────────────────
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
 
   // ── App preferences ────────────────────────────────────────
   const [theme, setTheme] = useState<UserPreferences['theme']>(user?.preferences?.theme || 'light')
@@ -127,6 +133,30 @@ export default function SettingsPage() {
       toast.error('Failed to save preferences')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const changePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match')
+      return
+    }
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setChangingPassword(true)
+    try {
+      await authAPI.changePassword(currentPassword, newPassword)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      toast.success('Password updated successfully')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || 'Failed to update password')
+    } finally {
+      setChangingPassword(false)
     }
   }
 
@@ -378,12 +408,37 @@ export default function SettingsPage() {
                 <div className="space-y-5">
                   <h3 className="text-base font-bold text-slate-800">Security Settings</h3>
                   <div className="space-y-4">
-                    <Input label="Current password" type="password" placeholder="••••••••" />
-                    <Input label="New password" type="password" placeholder="Create a strong password" />
-                    <Input label="Confirm new password" type="password" placeholder="Repeat new password" />
+                    <Input
+                      label="Current password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={currentPassword}
+                      onChange={e => setCurrentPassword(e.target.value)}
+                    />
+                    <Input
+                      label="New password"
+                      type="password"
+                      placeholder="Min 8 chars, 1 uppercase, 1 number"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                    />
+                    <Input
+                      label="Confirm new password"
+                      type="password"
+                      placeholder="Repeat new password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                    />
                   </div>
                   <div className="flex justify-end">
-                    <Button leftIcon={<Shield size={15} />}>Update Password</Button>
+                    <Button
+                      leftIcon={<Shield size={15} />}
+                      loading={changingPassword}
+                      onClick={changePassword}
+                      disabled={!currentPassword || !newPassword || !confirmPassword}
+                    >
+                      Update Password
+                    </Button>
                   </div>
                   <div className="border-t border-slate-100 pt-5">
                     <h4 className="text-sm font-semibold text-slate-700 mb-3">Danger Zone</h4>
