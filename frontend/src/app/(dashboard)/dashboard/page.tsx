@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import {
   Briefcase, FileText, ClipboardList, TrendingUp, Sparkles,
   ChevronRight, Calendar, Building2, MapPin, Zap,
-  Target, ArrowUpRight, AlertCircle
+  Target, ArrowUpRight, AlertCircle, CheckCircle2, Circle, X
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -77,6 +77,9 @@ export default function DashboardPage() {
   const [interviewApps, setInterviewApps] = useState<PopulatedApplication[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() =>
+    typeof window !== 'undefined' && localStorage.getItem('omnify-onboarding-dismissed') === '1'
+  )
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -108,6 +111,22 @@ export default function DashboardPage() {
   }, [])
 
   const firstName = user?.name?.split(' ')[0] || 'there'
+
+  const hasSkills = (user?.profile?.skills?.length ?? 0) > 0
+  const hasApplications = (stats?.total ?? 0) > 0
+  const showOnboarding = !loading && !onboardingDismissed && !hasSkills && !hasApplications
+
+  const dismissOnboarding = () => {
+    localStorage.setItem('omnify-onboarding-dismissed', '1')
+    setOnboardingDismissed(true)
+  }
+
+  const onboardingSteps = [
+    { label: 'Add your skills in Settings', href: '/settings', done: hasSkills },
+    { label: 'Upload and analyze your resume', href: '/resume', done: false },
+    { label: 'Search and save job matches', href: '/jobs', done: false },
+    { label: 'Submit your first application', href: '/applications', done: hasApplications },
+  ]
 
   const statusData = stats ? [
     { name: 'Applied', value: stats.applied, color: '#3b82f6' },
@@ -150,6 +169,53 @@ export default function DashboardPage() {
           </Link>
         </div>
       </motion.div>
+
+      {/* Onboarding checklist — shown to new users only */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{ duration: 0.3 }}
+            className="glass-card p-5 border-l-4 border-brand-teal"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-bold text-slate-800 mb-1">Get started with Omnify</p>
+                <p className="text-xs text-slate-500 mb-4">Complete these steps to get personalized job recommendations.</p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {onboardingSteps.map((step, i) => (
+                    <Link
+                      key={i}
+                      href={step.href}
+                      className={cn(
+                        'flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm transition-all duration-200',
+                        step.done
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white hover:border-brand-teal/40 hover:bg-brand-aqua/10 text-slate-700'
+                      )}
+                    >
+                      {step.done
+                        ? <CheckCircle2 size={16} className="text-emerald-500 flex-shrink-0" />
+                        : <Circle size={16} className="text-slate-300 flex-shrink-0" />
+                      }
+                      <span className={cn('text-xs', step.done && 'line-through opacity-60')}>{step.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={dismissOnboarding}
+                className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer flex-shrink-0"
+                aria-label="Dismiss"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* AI insight banner */}
       <motion.div
