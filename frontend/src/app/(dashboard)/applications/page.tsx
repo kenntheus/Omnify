@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ClipboardList, Search, Calendar, MapPin, Building2,
   Plus, TrendingUp, Eye, Star, Zap, AlertCircle, Trash2,
-  ChevronDown, Loader2, X
+  ChevronDown, Loader2, X, Link as LinkIcon
 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Button from '@/components/ui/Button'
@@ -91,6 +91,9 @@ export default function ApplicationsPage() {
     notes: '',
   })
   const [schedulingInterview, setSchedulingInterview] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addForm, setAddForm] = useState({ company: '', title: '', url: '', status: 'applied', appliedAt: new Date().toISOString().slice(0, 10), notes: '' })
+  const [addingApp, setAddingApp] = useState(false)
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -207,6 +210,34 @@ export default function ApplicationsPage() {
     }
   }
 
+  const addApplication = async () => {
+    if (!addForm.company || !addForm.title) { toast.error('Company and job title are required'); return }
+    setAddingApp(true)
+    try {
+      await applicationsAPI.createManual({
+        company: addForm.company,
+        title: addForm.title,
+        url: addForm.url || undefined,
+        status: addForm.status,
+        appliedAt: addForm.appliedAt,
+        notes: addForm.notes || undefined,
+      })
+      const [appsRes, statsRes] = await Promise.all([
+        applicationsAPI.getAll({ limit: 100 }),
+        applicationsAPI.getStats(),
+      ])
+      setApplications((appsRes.data.data as PopulatedApplication[]).filter(a => a.status !== 'saved'))
+      setStats(statsRes.data.data)
+      setShowAddModal(false)
+      setAddForm({ company: '', title: '', url: '', status: 'applied', appliedAt: new Date().toISOString().slice(0, 10), notes: '' })
+      toast.success('Application added!')
+    } catch {
+      toast.error('Failed to add application')
+    } finally {
+      setAddingApp(false)
+    }
+  }
+
   // Close status dropdown on outside click
   const STATUS_OPTIONS: ApplicationStatus[] = [
     'applied', 'pending', 'reviewing', 'phone_screen', 'interview',
@@ -319,6 +350,78 @@ export default function ApplicationsPage() {
         )}
       </AnimatePresence>
 
+      {/* ── Add application modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {showAddModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50"
+              onClick={() => setShowAddModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }} transition={{ duration: 0.2 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md z-50"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="glass-card p-6 shadow-glass-lg m-4">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-brand-aqua/40 flex items-center justify-center">
+                      <Plus size={15} className="text-brand-teal" />
+                    </div>
+                    <h3 className="text-base font-bold text-slate-800">Add Application</h3>
+                  </div>
+                  <button onClick={() => setShowAddModal(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer"><X size={16} /></button>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Company <span className="text-red-400">*</span></label>
+                      <input value={addForm.company} onChange={e => setAddForm(p => ({ ...p, company: e.target.value }))} placeholder="Acme Corp" className="w-full px-3 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-teal/60 transition-all" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Job title <span className="text-red-400">*</span></label>
+                      <input value={addForm.title} onChange={e => setAddForm(p => ({ ...p, title: e.target.value }))} placeholder="Software Engineer" className="w-full px-3 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-teal/60 transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Job URL</label>
+                    <input value={addForm.url} onChange={e => setAddForm(p => ({ ...p, url: e.target.value }))} placeholder="https://company.com/jobs/..." className="w-full px-3 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-teal/60 transition-all" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Status</label>
+                      <select value={addForm.status} onChange={e => setAddForm(p => ({ ...p, status: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all">
+                        {['applied','pending','reviewing','phone_screen','interview','offer','rejected'].map(s => (
+                          <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">Date applied</label>
+                      <input type="date" value={addForm.appliedAt} onChange={e => setAddForm(p => ({ ...p, appliedAt: e.target.value }))} className="w-full px-3 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Notes</label>
+                    <textarea value={addForm.notes} onChange={e => setAddForm(p => ({ ...p, notes: e.target.value }))} rows={2} placeholder="Referral from John, salary range $130k-160k..." className="w-full px-3 py-2.5 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 placeholder-slate-400 resize-none focus:outline-none focus:border-brand-teal/60 transition-all" />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={() => setShowAddModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer">Cancel</button>
+                  <button onClick={addApplication} disabled={!addForm.company || !addForm.title || addingApp}
+                    className="flex-1 py-2.5 rounded-xl bg-brand-teal text-white text-sm font-medium hover:bg-brand-teal/90 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+                    {addingApp && <Loader2 size={14} className="animate-spin" />}
+                    {addingApp ? 'Adding…' : 'Add Application'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
           <h1 className="page-title">Applications Tracker</h1>
@@ -326,7 +429,7 @@ export default function ApplicationsPage() {
             {loading ? 'Loading…' : `Tracking ${applications.length} application${applications.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <Button leftIcon={<Plus size={15} />}>Add Application</Button>
+        <Button leftIcon={<Plus size={15} />} onClick={() => setShowAddModal(true)}>Add Application</Button>
       </div>
 
       {error && (
