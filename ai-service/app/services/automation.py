@@ -113,50 +113,121 @@ class ApplicationAutomation:
         return result
 
     async def _apply_linkedin(self, page, user_data: Dict, resume_path: str, cover_letter: Optional[str]) -> Dict:
-        """Handle LinkedIn Easy Apply"""
-        # Click Easy Apply button
+        """Handle LinkedIn Easy Apply — navigates multi-step modal and submits."""
         try:
             await page.click('button:has-text("Easy Apply")', timeout=5000)
             await page.wait_for_selector('.jobs-easy-apply-modal', timeout=5000)
 
             fields_filled = 0
-            # Fill phone number if requested
-            phone_input = page.locator('input[name="phoneNumber"]')
-            if await phone_input.count() > 0:
-                await phone_input.fill(user_data.get("phone", ""))
-                fields_filled += 1
 
-            # Upload resume
-            file_input = page.locator('input[type="file"]')
-            if await file_input.count() > 0 and resume_path:
-                await file_input.set_input_files(resume_path)
-                fields_filled += 1
+            for _ in range(10):
+                await page.wait_for_timeout(800)
 
-            return {
-                "success": True,
-                "message": "LinkedIn Easy Apply completed",
-                "fieldsFilledCount": fields_filled,
-                "platform": "linkedin",
-            }
+                # Phone
+                phone = page.locator('input[name="phoneNumber"]')
+                if await phone.count() > 0 and user_data.get("phone"):
+                    await phone.fill(user_data["phone"])
+                    fields_filled += 1
+
+                # Resume upload
+                if resume_path:
+                    file_input = page.locator('input[type="file"]')
+                    if await file_input.count() > 0:
+                        await file_input.set_input_files(resume_path)
+                        fields_filled += 1
+                        await page.wait_for_timeout(1500)
+
+                # Cover letter
+                if cover_letter:
+                    cl_area = page.locator('textarea[id*="cover"], textarea[placeholder*="cover" i]')
+                    if await cl_area.count() > 0:
+                        await cl_area.first.fill(cover_letter)
+                        fields_filled += 1
+
+                # Submit
+                submit = page.locator('button:has-text("Submit application")')
+                if await submit.count() > 0:
+                    await submit.click()
+                    await page.wait_for_timeout(2000)
+                    return {"success": True, "message": "LinkedIn Easy Apply submitted",
+                            "fieldsFilledCount": fields_filled, "platform": "linkedin"}
+
+                # Review step before submit
+                review = page.locator('button:has-text("Review")')
+                if await review.count() > 0:
+                    await review.click()
+                    continue
+
+                # Next step
+                next_btn = page.locator('button:has-text("Next")')
+                if await next_btn.count() > 0:
+                    await next_btn.click()
+                else:
+                    break
+
+            return {"success": False, "message": "LinkedIn: submit button not reached", "platform": "linkedin"}
         except Exception as e:
             return {"success": False, "message": f"LinkedIn apply failed: {str(e)}", "platform": "linkedin"}
 
     async def _apply_indeed(self, page, user_data: Dict, resume_path: str, cover_letter: Optional[str]) -> Dict:
-        """Handle Indeed application"""
-        return {"success": True, "message": "Indeed application submitted", "platform": "indeed", "fieldsFilledCount": 3}
+        """Handle Indeed application — clicks Apply now, fills fields, submits."""
+        try:
+            apply_btn = page.locator('button:has-text("Apply now"), a:has-text("Apply now")').first
+            if await apply_btn.count() > 0:
+                await apply_btn.click()
+                await page.wait_for_load_state("networkidle", timeout=10000)
+
+            fields_filled = 0
+            field_mappings = [
+                ('input[name*="name"], input[id*="name"]', user_data.get("name", "")),
+                ('input[type="email"]', user_data.get("email", "")),
+                ('input[type="tel"], input[name*="phone"]', user_data.get("phone", "")),
+            ]
+            for selector, value in field_mappings:
+                if value:
+                    try:
+                        el = page.locator(selector).first
+                        if await el.count() > 0:
+                            await el.fill(str(value))
+                            fields_filled += 1
+                    except Exception:
+                        pass
+
+            if resume_path:
+                file_input = page.locator('input[type="file"]').first
+                if await file_input.count() > 0:
+                    await file_input.set_input_files(resume_path)
+                    fields_filled += 1
+                    await page.wait_for_timeout(2000)
+
+            if cover_letter:
+                cl = page.locator('textarea[name*="cover"], textarea[id*="cover"]').first
+                if await cl.count() > 0:
+                    await cl.fill(cover_letter)
+                    fields_filled += 1
+
+            submit = page.locator('button[type="submit"], button:has-text("Submit"), button:has-text("Apply")').first
+            if await submit.count() > 0:
+                await submit.click()
+                await page.wait_for_timeout(2000)
+                return {"success": True, "message": f"Indeed application submitted ({fields_filled} fields filled)",
+                        "fieldsFilledCount": fields_filled, "platform": "indeed"}
+
+            return {"success": False, "message": "Indeed: submit button not found", "platform": "indeed"}
+        except Exception as e:
+            return {"success": False, "message": f"Indeed apply failed: {str(e)}", "platform": "indeed"}
 
     async def _apply_generic(self, page, user_data: Dict, resume_path: str, cover_letter: Optional[str], custom_answers: Optional[Dict]) -> Dict:
-        """Handle generic application forms using smart field detection"""
+        """Handle generic application forms — fills fields, uploads resume, submits."""
         fields_filled = 0
-        field_mappings = {
-            'input[name*="name"], input[placeholder*="name" i]': user_data.get("name", ""),
-            'input[type="email"], input[name*="email"]': user_data.get("email", ""),
-            'input[type="tel"], input[name*="phone"]': user_data.get("phone", ""),
-            'input[name*="linkedin"], input[placeholder*="linkedin" i]': user_data.get("linkedin", ""),
-            'input[name*="portfolio"], input[name*="website"]': user_data.get("portfolio", ""),
-        }
-
-        for selector, value in field_mappings.items():
+        field_mappings = [
+            ('input[name*="name"], input[placeholder*="name" i]', user_data.get("name", "")),
+            ('input[type="email"], input[name*="email"]', user_data.get("email", "")),
+            ('input[type="tel"], input[name*="phone"]', user_data.get("phone", "")),
+            ('input[name*="linkedin"], input[placeholder*="linkedin" i]', user_data.get("linkedin", "")),
+            ('input[name*="portfolio"], input[name*="website"]', user_data.get("portfolio", "")),
+        ]
+        for selector, value in field_mappings:
             if value:
                 try:
                     el = page.locator(selector).first
@@ -166,9 +237,54 @@ class ApplicationAutomation:
                 except Exception:
                     pass
 
+        if resume_path:
+            try:
+                file_input = page.locator('input[type="file"]').first
+                if await file_input.count() > 0:
+                    await file_input.set_input_files(resume_path)
+                    fields_filled += 1
+                    await page.wait_for_timeout(1000)
+            except Exception:
+                pass
+
+        if cover_letter:
+            for sel in ['textarea[name*="cover"]', 'textarea[id*="cover"]', 'textarea[placeholder*="cover" i]', 'textarea']:
+                try:
+                    el = page.locator(sel).first
+                    if await el.count() > 0:
+                        await el.fill(cover_letter)
+                        fields_filled += 1
+                        break
+                except Exception:
+                    pass
+
+        if custom_answers:
+            for key, answer in custom_answers.items():
+                try:
+                    el = page.locator(f'input[name*="{key}"], textarea[name*="{key}"]').first
+                    if await el.count() > 0:
+                        await el.fill(answer)
+                        fields_filled += 1
+                except Exception:
+                    pass
+
+        submitted = False
+        for sel in ['button[type="submit"]', 'input[type="submit"]',
+                    'button:has-text("Submit")', 'button:has-text("Apply")',
+                    'button:has-text("Send application")', 'button:has-text("Send Application")']:
+            try:
+                btn = page.locator(sel).first
+                if await btn.count() > 0:
+                    await btn.click()
+                    await page.wait_for_timeout(2000)
+                    submitted = True
+                    break
+            except Exception:
+                pass
+
         return {
-            "success": fields_filled > 0,
-            "message": f"Filled {fields_filled} fields",
+            "success": submitted and fields_filled > 0,
+            "message": f"Filled {fields_filled} fields" + (" and submitted" if submitted else " — submit button not found"),
             "fieldsFilledCount": fields_filled,
             "platform": "generic",
         }
