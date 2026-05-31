@@ -11,7 +11,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Skeleton from '@/components/ui/Skeleton'
 import { cn, formatSalary, timeAgo } from '@/lib/utils'
-import { jobsAPI } from '@/lib/api'
+import { jobsAPI, applicationsAPI } from '@/lib/api'
 import type { Job } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -48,6 +48,7 @@ export default function SavedJobsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set())
+  const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -82,6 +83,19 @@ export default function SavedJobsPage() {
       toast.error('Failed to remove saved job')
     } finally {
       setRemovingIds(prev => { const next = new Set(prev); next.delete(jobId); return next })
+    }
+  }
+
+  const applyJob = async (jobId: string) => {
+    setApplyingIds(prev => new Set(prev).add(jobId))
+    try {
+      await applicationsAPI.autoApply(jobId, undefined as unknown as string, {})
+      toast.success('Application submitted!')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || 'Failed to apply')
+    } finally {
+      setApplyingIds(prev => { const next = new Set(prev); next.delete(jobId); return next })
     }
   }
 
@@ -238,7 +252,7 @@ export default function SavedJobsPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2">
-                    <Button size="sm" fullWidth leftIcon={<Zap size={13} />}>Apply Now</Button>
+                    <Button size="sm" fullWidth leftIcon={<Zap size={13} />} loading={applyingIds.has(job._id)} onClick={() => applyJob(job._id)}>Apply Now</Button>
                     {job.sourceUrl && (
                       <a href={job.sourceUrl} target="_blank" rel="noreferrer">
                         <Button size="sm" variant="secondary" leftIcon={<ExternalLink size={13} />}>View</Button>
