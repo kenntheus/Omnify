@@ -6,6 +6,7 @@ import { User, Bell, Shield, Palette, Trash2, Save, Camera, Check, Plus, X } fro
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
+import { useRef } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
 import { userAPI, authAPI } from '@/lib/api'
 import type { UserPreferences } from '@/types'
@@ -31,6 +32,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   // ── Profile fields ─────────────────────────────────────────
   const [name, setName] = useState(user?.name || '')
@@ -136,6 +139,22 @@ export default function SettingsPage() {
     }
   }
 
+  const uploadAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    try {
+      const res = await userAPI.uploadAvatar(file)
+      updateUser(res.data.data)
+      toast.success('Avatar updated')
+    } catch {
+      toast.error('Failed to upload avatar')
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ''
+    }
+  }
+
   const changePassword = async () => {
     if (newPassword !== confirmPassword) {
       toast.error('New passwords do not match')
@@ -234,17 +253,27 @@ export default function SettingsPage() {
                     {/* Avatar */}
                     <div className="flex items-center gap-4 mb-6">
                       <div className="relative">
-                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center text-white text-2xl font-bold shadow-brand">
-                          {user?.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <button className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors cursor-pointer">
+                        {user?.avatar ? (
+                          <img src={user.avatar} alt={user.name} className="w-20 h-20 rounded-2xl object-cover shadow-brand" />
+                        ) : (
+                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center text-white text-2xl font-bold shadow-brand">
+                            {user?.name?.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => avatarInputRef.current?.click()}
+                          className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
                           <Camera size={13} className="text-slate-600" />
                         </button>
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-800">{user?.name}</p>
                         <p className="text-xs text-slate-500 mb-2">{user?.email}</p>
-                        <Button variant="secondary" size="xs">Upload photo</Button>
+                        <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={uploadAvatar} />
+                        <Button variant="secondary" size="xs" loading={uploadingAvatar} onClick={() => avatarInputRef.current?.click()}>
+                          Upload photo
+                        </Button>
                       </div>
                     </div>
 
