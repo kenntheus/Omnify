@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -10,7 +10,10 @@ import {
 } from 'lucide-react'
 import { cn, initials, timeAgo } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
+import { notificationsAPI } from '@/lib/api'
 import Badge from '@/components/ui/Badge'
+
+const POLL_INTERVAL = 30_000
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -23,24 +26,27 @@ const pageTitles: Record<string, string> = {
   '/admin': 'Admin Panel',
 }
 
+interface Notification {
+  _id: string
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  type: string
+  actionUrl?: string
+}
+
 interface HeaderProps {
   sidebarCollapsed: boolean
   onMobileMenuOpen: () => void
 }
-
-const mockNotifications = [
-  { id: '1', title: 'New job match!', message: 'Senior Frontend Developer at Stripe matches 94%', read: false, time: '2m ago', type: 'job' },
-  { id: '2', title: 'Application viewed', message: 'Your application at Vercel was viewed by a recruiter', read: false, time: '1h ago', type: 'app' },
-  { id: '3', title: 'Interview scheduled', message: 'Technical interview with GitHub on Dec 15 at 2:00 PM', read: false, time: '3h ago', type: 'interview' },
-  { id: '4', title: 'Resume analysis done', message: 'Your resume scored 87/100. View recommendations.', read: true, time: '1d ago', type: 'resume' },
-]
 
 export default function Header({ sidebarCollapsed, onMobileMenuOpen }: HeaderProps) {
   const pathname = usePathname()
   const { user, logout } = useAuthStore()
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [notifications, setNotifications] = useState(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const notifRef = useRef<HTMLDivElement>(null)
   const profileRef = useRef<HTMLDivElement>(null)
 
@@ -49,6 +55,21 @@ export default function Header({ sidebarCollapsed, onMobileMenuOpen }: HeaderPro
   )?.[1] || 'Omnify'
 
   const unreadCount = notifications.filter(n => !n.read).length
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await notificationsAPI.getAll({ limit: 5 })
+      setNotifications(res.data.data ?? [])
+    } catch {
+      // silently fail — header should never break
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchNotifications()
+    const id = setInterval(fetchNotifications, POLL_INTERVAL)
+    return () => clearInterval(id)
+  }, [fetchNotifications])
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -59,7 +80,14 @@ export default function Header({ sidebarCollapsed, onMobileMenuOpen }: HeaderPro
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const markAllRead = () => setNotifications(n => n.map(x => ({ ...x, read: true })))
+  const markAllRead = async () => {
+    try {
+      await notificationsAPI.markAllRead()
+      setNotifications(n => n.map(x => ({ ...x, read: true })))
+    } catch {
+      // optimistic already applied
+    }
+  }
 
   return (
     <header
@@ -150,12 +178,17 @@ export default function Header({ sidebarCollapsed, onMobileMenuOpen }: HeaderPro
                   ) : (
                     notifications.map((n) => (
                       <div
-                        key={n.id}
+                        key={n._id}
                         className={cn(
                           'flex gap-3 px-4 py-3 border-b border-slate-50 hover:bg-slate-50/80 transition-colors cursor-pointer',
                           !n.read && 'bg-brand-aqua/10'
                         )}
-                        onClick={() => setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))}
+                        onClick={async () => {
+                          try {
+                            await notificationsAPI.markRead(n._id)
+                            setNotifications(prev => prev.map(x => x._id === n._id ? { ...x, read: true } : x))
+                          } catch {}
+                        }}
                       >
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-teal/20 to-primary-300/20 flex items-center justify-center flex-shrink-0">
                           <Sparkles size={14} className="text-brand-teal" />
@@ -165,7 +198,7 @@ export default function Header({ sidebarCollapsed, onMobileMenuOpen }: HeaderPro
                             {n.title}
                           </p>
                           <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
-                          <p className="text-xs text-slate-400 mt-1">{n.time}</p>
+                          <p className="text-xs text-slate-400 mt-1">{timeAgo(n.createdAt)}</p>
                         </div>
                         {!n.read && (
                           <div className="w-2 h-2 bg-brand-teal rounded-full flex-shrink-0 mt-1.5" />

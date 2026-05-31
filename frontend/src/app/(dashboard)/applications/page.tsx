@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ClipboardList, Search, Calendar, MapPin, Building2,
@@ -92,25 +92,27 @@ export default function ApplicationsPage() {
   })
   const [schedulingInterview, setSchedulingInterview] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [appsRes, statsRes] = await Promise.all([
-          applicationsAPI.getAll({ limit: 100 }),
-          applicationsAPI.getStats(),
-        ])
-        // Exclude 'saved' — those belong to the Saved Jobs page
-        const all = (appsRes.data.data as PopulatedApplication[]).filter(a => a.status !== 'saved')
-        setApplications(all)
-        setStats(statsRes.data.data)
-      } catch {
-        setError(true)
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async (silent = false) => {
+    try {
+      const [appsRes, statsRes] = await Promise.all([
+        applicationsAPI.getAll({ limit: 100 }),
+        applicationsAPI.getStats(),
+      ])
+      const all = (appsRes.data.data as PopulatedApplication[]).filter(a => a.status !== 'saved')
+      setApplications(all)
+      setStats(statsRes.data.data)
+    } catch {
+      if (!silent) setError(true)
+    } finally {
+      if (!silent) setLoading(false)
     }
-    load()
   }, [])
+
+  useEffect(() => {
+    load()
+    const id = setInterval(() => load(true), 30_000)
+    return () => clearInterval(id)
+  }, [load])
 
   const remove = async (id: string) => {
     setDeletingIds(prev => new Set(prev).add(id))
