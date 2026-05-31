@@ -27,7 +27,7 @@ const notifItems: { key: keyof Omit<UserPreferences, 'theme'>; title: string; de
 ]
 
 export default function SettingsPage() {
-  const { user, updateUser, logout } = useAuthStore()
+  const { user, updateUser, logout, setTokens } = useAuthStore()
 
   const [activeTab, setActiveTab] = useState('profile')
   const [saving, setSaving] = useState(false)
@@ -166,7 +166,9 @@ export default function SettingsPage() {
     }
     setChangingPassword(true)
     try {
-      await authAPI.changePassword(currentPassword, newPassword)
+      const res = await authAPI.changePassword(currentPassword, newPassword)
+      const { token, refreshToken } = res.data.data
+      setTokens(token, refreshToken)
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
