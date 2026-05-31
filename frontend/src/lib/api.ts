@@ -227,6 +227,10 @@ export const adminAPI = {
   getSystemHealth: () => api.get('/admin/health'),
 
   getLogs: (params?: Record<string, unknown>) => api.get('/admin/logs', { params }),
+
+  getGrowth: () => api.get('/admin/growth'),
+
+  getTopSkills: () => api.get('/admin/top-skills'),
 }
 
 export default api

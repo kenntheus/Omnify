@@ -20,14 +20,6 @@ interface AdminStats { totalUsers: number; activeUsers: number; totalApplication
 interface AdminUser { _id: string; name: string; email: string; createdAt: string; isActive: boolean; subscription: string }
 interface HealthData { api: string; database: string; uptime: number }
 
-const growthData = [
-  { month: 'Jul', users: 24000, apps: 120000 },
-  { month: 'Aug', users: 28000, apps: 145000 },
-  { month: 'Sep', users: 33000, apps: 178000 },
-  { month: 'Oct', users: 38000, apps: 215000 },
-  { month: 'Nov', users: 45000, apps: 248000 },
-  { month: 'Dec', users: 52847, apps: 284910 },
-]
 
 const systemServices = [
   { name: 'REST API', status: 'healthy', uptime: '99.9%', latency: '42ms' },
@@ -38,13 +30,6 @@ const systemServices = [
   { name: 'Email Service', status: 'healthy', uptime: '99.7%', latency: '180ms' },
 ]
 
-const topSkills = [
-  { skill: 'React', count: 12847, trend: 'up' },
-  { skill: 'TypeScript', count: 11234, trend: 'up' },
-  { skill: 'Python', count: 10892, trend: 'up' },
-  { skill: 'Node.js', count: 9456, trend: 'stable' },
-  { skill: 'AWS', count: 8934, trend: 'up' },
-]
 
 const statusIcon = { healthy: CheckCircle, degraded: AlertCircle, down: XCircle }
 const statusColor = { healthy: 'text-emerald-600', degraded: 'text-amber-600', down: 'text-red-600' }
@@ -57,17 +42,23 @@ export default function AdminPage() {
   const [health, setHealth] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [growthData, setGrowthData] = useState<{ month: string; users: number; apps: number }[]>([])
+  const [topSkills, setTopSkills] = useState<{ skill: string; count: number }[]>([])
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, usersRes, healthRes] = await Promise.all([
+      const [statsRes, usersRes, healthRes, growthRes, skillsRes] = await Promise.all([
         adminAPI.getStats(),
         adminAPI.getUsers({ limit: 5 }),
         adminAPI.getSystemHealth(),
+        adminAPI.getGrowth(),
+        adminAPI.getTopSkills(),
       ])
       setStats(statsRes.data.data)
       setUsers(usersRes.data.data)
       setHealth(healthRes.data.data)
+      setGrowthData(growthRes.data.data)
+      setTopSkills(skillsRes.data.data)
     } catch {
       toast.error('Failed to load admin data — check your admin role')
     } finally {
@@ -79,11 +70,6 @@ export default function AdminPage() {
 
   const syncJobs = async () => {
     setSyncing(true)
-    try {
-      const res = await adminAPI.getLogs({}) // reuse available method — sync is POST /admin/sync-jobs
-      void res
-    } catch {}
-    // Call sync-jobs directly since adminAPI doesn't have it
     try {
       const res = await fetch('/api/admin/sync-jobs', { method: 'POST', headers: { Authorization: `Bearer ${document.cookie.match(/omnify_token=([^;]+)/)?.[1] || ''}` } })
       const data = await res.json()
@@ -205,7 +191,7 @@ export default function AdminPage() {
                   <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${(s.count / topSkills[0].count) * 100}%` }}
+                      animate={{ width: `${(s.count / (topSkills[0]?.count || 1)) * 100}%` }}
                       transition={{ duration: 0.8, delay: i * 0.1 }}
                       className="h-full bg-gradient-to-r from-brand-teal to-primary-400 rounded-full"
                     />

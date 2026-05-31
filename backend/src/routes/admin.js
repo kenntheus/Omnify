@@ -42,6 +42,41 @@ router.get('/health', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { api: 'healthy', database: 'healthy', uptime: process.uptime() } })
 }))
 
+// ─── Platform growth — last 6 months ─────────────────────────
+router.get('/growth', asyncHandler(async (req, res) => {
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const results = []
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(1)
+    d.setMonth(d.getMonth() - i)
+    const start = new Date(d.getFullYear(), d.getMonth(), 1)
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
+
+    const [users, apps] = await Promise.all([
+      User.countDocuments({ createdAt: { $lte: end } }),
+      Application.countDocuments({ appliedAt: { $gte: start, $lte: end } }),
+    ])
+
+    results.push({ month: MONTH_NAMES[d.getMonth()], users, apps })
+  }
+
+  res.json({ success: true, data: results })
+}))
+
+// ─── Top skills in demand from job listings ───────────────────
+router.get('/top-skills', asyncHandler(async (req, res) => {
+  const jobs = await Job.find({ isActive: true }).select('skills').limit(500).lean()
+  const freq = {}
+  jobs.forEach(j => (j.skills || []).forEach(s => { if (s) freq[s] = (freq[s] || 0) + 1 }))
+  const data = Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([skill, count]) => ({ skill, count }))
+  res.json({ success: true, data })
+}))
+
 // ─── Sync jobs from Remotive API ──────────────────────────────
 router.post('/sync-jobs', asyncHandler(async (req, res) => {
   const axios = require('axios')
