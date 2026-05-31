@@ -172,6 +172,34 @@ router.get('/interview-questions', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: questions.slice(0, 5) })
 }))
 
+router.get('/skill-recommendations', protect, asyncHandler(async (req, res) => {
+  const Job = require('../models/Job')
+
+  const userSkills = (req.user.profile?.skills || []).map(s => s.toLowerCase())
+
+  // Count skill frequency across active job listings
+  const jobs = await Job.find({ isActive: true }).select('skills').limit(300).lean()
+  const freq = {}
+  jobs.forEach(j => (j.skills || []).forEach(s => {
+    const k = s.toLowerCase()
+    freq[k] = (freq[k] || 0) + 1
+  }))
+
+  // Sort by frequency, exclude skills user already has
+  const recommendations = Object.entries(freq)
+    .filter(([skill]) => !userSkills.includes(skill))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([skill, count]) => ({
+      skill,
+      jobCount: count,
+      demandLevel: count >= 30 ? 'high' : count >= 15 ? 'medium' : 'low',
+      reason: `Appears in ${count} active job listing${count !== 1 ? 's' : ''}`,
+    }))
+
+  res.json({ success: true, data: recommendations })
+}))
+
 router.post('/chat', protect, asyncHandler(async (req, res) => {
   const { message, context } = req.body
   try {
