@@ -158,6 +158,9 @@ export const applicationsAPI = {
 
   autoApply: (jobId: string, resumeId: string, data: unknown) =>
     api.post('/applications/auto-apply', { jobId, resumeId, ...data as object }),
+
+  createManual: (data: { company: string; title: string; url?: string; status?: string; appliedAt?: string; notes?: string }) =>
+    api.post('/applications/manual', data),
 }
 
 // ─── Cover Letter API ─────────────────────────────────────────

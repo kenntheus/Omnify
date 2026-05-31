@@ -117,6 +117,49 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Application deleted' })
 }))
 
+// ─── Manual application entry (no job listing required) ──────
+router.post('/manual', protect, asyncHandler(async (req, res) => {
+  const { company, title, url, status = 'applied', appliedAt, notes } = req.body
+  if (!company || !title) return res.status(400).json({ success: false, message: 'company and title are required' })
+
+  const Job = require('../models/Job')
+
+  const job = await Job.create({
+    title,
+    company: { name: company },
+    location: 'Not specified',
+    remote: 'onsite',
+    description: `Manually tracked application for ${title} at ${company}`,
+    skills: [],
+    source: 'manual',
+    sourceUrl: url || null,
+    isActive: false,
+    type: 'full-time',
+    experience: 'Not specified',
+  })
+
+  const application = await Application.create({
+    userId: req.user._id,
+    jobId: job._id,
+    status,
+    appliedAt: appliedAt ? new Date(appliedAt) : new Date(),
+    notes,
+    timeline: [{ status, automated: false }],
+  })
+
+  const populated = await Application.findById(application._id).populate('jobId')
+
+  notify({
+    userId: req.user._id,
+    type: 'application_update',
+    title: 'Application added',
+    message: `Added manual application for ${title} at ${company}.`,
+    actionUrl: '/applications',
+  })
+
+  res.status(201).json({ success: true, data: populated, message: 'Application added' })
+}))
+
 // ─── Auto-apply via AI browser automation ────────────────────
 router.post('/auto-apply', protect, asyncHandler(async (req, res) => {
   const { jobId, resumeId, coverLetter, customAnswers } = req.body
