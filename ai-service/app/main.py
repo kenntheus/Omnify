@@ -4,16 +4,43 @@ FastAPI microservice for AI-powered resume analysis, job matching,
 cover letter generation, and career insights.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+import logging
 import os
 from dotenv import load_dotenv
 
 from app.routers import resume, jobs, cover_letter, career, automation
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+def _check_playwright():
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser_path = p.chromium.executable_path
+            if not os.path.exists(browser_path):
+                raise FileNotFoundError()
+    except Exception:
+        logger.warning(
+            "\n"
+            "  ╔══════════════════════════════════════════════════════╗\n"
+            "  ║  Playwright chromium not installed — auto-apply      ║\n"
+            "  ║  will not work. Run once to fix:                     ║\n"
+            "  ║                                                      ║\n"
+            "  ║    python -m playwright install chromium             ║\n"
+            "  ╚══════════════════════════════════════════════════════╝"
+        )
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _check_playwright()
+    yield
 
 # ─── App setup ────────────────────────────────────────────────
 app = FastAPI(
@@ -22,6 +49,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # ─── CORS ─────────────────────────────────────────────────────
