@@ -64,6 +64,9 @@ export default function SettingsPage() {
 
   // ── App preferences ────────────────────────────────────────
   const [theme, setTheme] = useState<UserPreferences['theme']>(user?.preferences?.theme || 'light')
+  const [language, setLanguage] = useState(user?.preferences?.language || 'English')
+  const [currency, setCurrency] = useState(user?.preferences?.currency || 'USD')
+  const [dateFormat, setDateFormat] = useState(user?.preferences?.dateFormat || 'MM/DD/YYYY')
 
   const flashSaved = () => {
     setSaved(true)
@@ -128,8 +131,8 @@ export default function SettingsPage() {
   const saveAppPreferences = async () => {
     setSaving(true)
     try {
-      await userAPI.updatePreferences({ theme })
-      updateUser({ preferences: { ...user?.preferences, theme } as UserPreferences })
+      await userAPI.updatePreferences({ theme, language, currency, dateFormat })
+      updateUser({ preferences: { ...user?.preferences, theme, language, currency, dateFormat } as UserPreferences })
       flashSaved()
       toast.success('Preferences saved')
     } catch {
@@ -502,21 +505,29 @@ export default function SettingsPage() {
                     </select>
                   </div>
 
-                  {[
-                    { label: 'Language', options: ['English', 'Spanish', 'French', 'German'], defaultValue: 'English' },
-                    { label: 'Currency', options: ['USD', 'EUR', 'GBP', 'CAD'], defaultValue: 'USD' },
-                    { label: 'Date format', options: ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'], defaultValue: 'MM/DD/YYYY' },
-                  ].map(p => (
-                    <div key={p.label} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
-                      <p className="text-sm font-medium text-slate-700">{p.label}</p>
-                      <select
-                        defaultValue={p.defaultValue}
-                        className="px-3 py-2 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all"
-                      >
-                        {p.options.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                  ))}
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                    <p className="text-sm font-medium text-slate-700">Language</p>
+                    <select value={language} onChange={e => setLanguage(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all">
+                      {['English', 'Spanish', 'French', 'German'].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                    <p className="text-sm font-medium text-slate-700">Currency</p>
+                    <select value={currency} onChange={e => setCurrency(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all">
+                      {['USD', 'EUR', 'GBP', 'CAD'].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                    <p className="text-sm font-medium text-slate-700">Date format</p>
+                    <select value={dateFormat} onChange={e => setDateFormat(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-brand-teal/20 bg-white/80 text-sm text-slate-800 focus:outline-none focus:border-brand-teal/60 transition-all">
+                      {['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  </div>
 
                   <div className="flex justify-end">
                     <SaveButton onClick={saveAppPreferences} />

@@ -39,6 +39,9 @@ export interface UserPreferences {
   weeklyDigest: boolean
   jobAlerts: boolean
   theme: 'light' | 'dark' | 'system'
+  language?: string
+  currency?: string
+  dateFormat?: string
 }
 
 export interface Experience {
