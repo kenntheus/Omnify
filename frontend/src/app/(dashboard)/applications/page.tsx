@@ -52,15 +52,6 @@ function getNextStep(app: PopulatedApplication): string | null {
   return null
 }
 
-// Weekly chart has no backend analytics endpoint — kept as illustrative static data
-const weeklyData = [
-  { week: 'W1', apps: 8, responses: 2 },
-  { week: 'W2', apps: 12, responses: 4 },
-  { week: 'W3', apps: 15, responses: 5 },
-  { week: 'W4', apps: 10, responses: 6 },
-  { week: 'W5', apps: 5, responses: 3 },
-]
-
 const statusTabs: { value: ApplicationStatus | 'all'; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'applied', label: 'Applied' },
@@ -74,6 +65,7 @@ const statusTabs: { value: ApplicationStatus | 'all'; label: string }[] = [
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<PopulatedApplication[]>([])
   const [stats, setStats] = useState<ApplicationStats | null>(null)
+  const [weeklyData, setWeeklyData] = useState<{ day: string; applied: number; responses: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all')
@@ -97,13 +89,15 @@ export default function ApplicationsPage() {
 
   const load = useCallback(async (silent = false) => {
     try {
-      const [appsRes, statsRes] = await Promise.all([
+      const [appsRes, statsRes, weeklyRes] = await Promise.all([
         applicationsAPI.getAll({ limit: 100 }),
         applicationsAPI.getStats(),
+        applicationsAPI.getWeeklyActivity(),
       ])
       const all = (appsRes.data.data as PopulatedApplication[]).filter(a => a.status !== 'saved')
       setApplications(all)
       setStats(statsRes.data.data)
+      if (!silent) setWeeklyData(weeklyRes.data.data.map((d: { day: string; applied: number; responses: number }) => ({ day: d.day, applied: d.applied, responses: d.responses })))
     } catch {
       if (!silent) setError(true)
     } finally {
@@ -477,10 +471,10 @@ export default function ApplicationsPage() {
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={weeklyData} barSize={10}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,182,172,0.1)" vertical={false} />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }} />
-              <Bar dataKey="apps" fill="#64b6ac" radius={[4, 4, 0, 0]} name="Applications" />
+              <Bar dataKey="applied" fill="#64b6ac" radius={[4, 4, 0, 0]} name="Applied" />
               <Bar dataKey="responses" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Responses" />
             </BarChart>
           </ResponsiveContainer>

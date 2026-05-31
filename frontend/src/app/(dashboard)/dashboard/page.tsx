@@ -42,17 +42,6 @@ function getLogoColor(name: string): string {
 // ── Populated application type ─────────────────────────────────
 type PopulatedApplication = Omit<Application, 'jobId'> & { jobId: Job }
 
-// ── Static weekly chart data ───────────────────────────────────
-const weeklyData = [
-  { day: 'Mon', applied: 3, responses: 1, interviews: 0 },
-  { day: 'Tue', applied: 5, responses: 2, interviews: 1 },
-  { day: 'Wed', applied: 2, responses: 1, interviews: 0 },
-  { day: 'Thu', applied: 7, responses: 3, interviews: 1 },
-  { day: 'Fri', applied: 4, responses: 2, interviews: 2 },
-  { day: 'Sat', applied: 1, responses: 0, interviews: 0 },
-  { day: 'Sun', applied: 0, responses: 1, interviews: 1 },
-]
-
 // ── Custom Tooltip ─────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color: string }[]; label?: string }) => {
   if (!active || !payload?.length) return null
@@ -82,6 +71,7 @@ export default function DashboardPage() {
     typeof window !== 'undefined' && localStorage.getItem('omnify-onboarding-dismissed') === '1'
   )
   const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
+  const [weeklyData, setWeeklyData] = useState<{ day: string; applied: number; responses: number; interviews: number }[]>([])
 
   const applyJob = async (jobId: string) => {
     setApplyingIds(prev => new Set(prev).add(jobId))
@@ -106,16 +96,18 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, jobsRes, appsRes, interviewRes] = await Promise.all([
+        const [statsRes, jobsRes, appsRes, interviewRes, weeklyRes] = await Promise.all([
           applicationsAPI.getStats(),
           jobsAPI.getRecommended({ limit: 3 }),
           applicationsAPI.getAll({ limit: 4 }),
           applicationsAPI.getAll({ status: 'interview', limit: 3 }),
+          applicationsAPI.getWeeklyActivity(),
         ])
         setStats(statsRes.data.data)
         setRecommendedJobs(jobsRes.data.data)
         setRecentApps(appsRes.data.data as PopulatedApplication[])
         setInterviewApps(interviewRes.data.data as PopulatedApplication[])
+        setWeeklyData(weeklyRes.data.data)
       } catch {
         setError('Failed to load dashboard data')
       } finally {

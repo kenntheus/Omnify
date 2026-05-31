@@ -157,6 +157,8 @@ export const applicationsAPI = {
 
   getStats: () => api.get('/applications/stats'),
 
+  getWeeklyActivity: () => api.get('/applications/weekly-activity'),
+
   delete: (id: string) => api.delete(`/applications/${id}`),
 
   autoApply: (jobId: string, resumeId: string, data: unknown) =>
