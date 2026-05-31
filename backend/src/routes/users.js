@@ -1,8 +1,22 @@
 const express = require('express')
+const multer = require('multer')
+const path = require('path')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const User = require('../models/User')
+
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, 'uploads/avatars/'),
+    filename: (req, file, cb) => cb(null, `${req.user._id}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true)
+    else cb(new Error('Only image files are allowed'))
+  },
+})
 
 router.get('/profile', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: req.user })
@@ -24,6 +38,13 @@ router.put('/preferences', protect, asyncHandler(async (req, res) => {
     { new: true }
   )
   res.json({ success: true, data: user.preferences })
+}))
+
+router.post('/avatar', protect, avatarUpload.single('avatar'), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' })
+  const avatarUrl = `/uploads/avatars/${req.file.filename}`
+  const user = await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl }, { new: true })
+  res.json({ success: true, data: user, message: 'Avatar updated' })
 }))
 
 router.delete('/account', protect, asyncHandler(async (req, res) => {
