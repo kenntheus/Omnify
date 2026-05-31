@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
@@ -11,14 +11,14 @@ import {
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
+import Skeleton from '@/components/ui/Skeleton'
 import { cn, timeAgo, formatNumber } from '@/lib/utils'
+import { adminAPI } from '@/lib/api'
+import toast from 'react-hot-toast'
 
-const adminStats = [
-  { label: 'Total Users', value: 52847, change: 12.4, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-  { label: 'Active Today', value: 8234, change: 5.2, icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  { label: 'Applications', value: 284910, change: 18.7, icon: ClipboardList, color: 'text-brand-teal', bg: 'bg-brand-aqua/30' },
-  { label: 'Jobs Posted', value: 15432, change: 9.1, icon: Briefcase, color: 'text-purple-600', bg: 'bg-purple-50' },
-]
+interface AdminStats { totalUsers: number; activeUsers: number; totalApplications: number; totalJobs: number }
+interface AdminUser { _id: string; name: string; email: string; createdAt: string; isActive: boolean; subscription: string }
+interface HealthData { api: string; database: string; uptime: number }
 
 const growthData = [
   { month: 'Jul', users: 24000, apps: 120000 },
@@ -27,14 +27,6 @@ const growthData = [
   { month: 'Oct', users: 38000, apps: 215000 },
   { month: 'Nov', users: 45000, apps: 248000 },
   { month: 'Dec', users: 52847, apps: 284910 },
-]
-
-const recentUsers = [
-  { id: '1', name: 'Sarah Johnson', email: 'sarah.j@email.com', joined: '2024-12-11T09:00:00Z', apps: 12, status: 'active' },
-  { id: '2', name: 'Michael Chen', email: 'm.chen@email.com', joined: '2024-12-11T08:30:00Z', apps: 4, status: 'active' },
-  { id: '3', name: 'Emma Davis', email: 'emma.d@email.com', joined: '2024-12-10T16:00:00Z', apps: 89, status: 'active' },
-  { id: '4', name: 'James Wilson', email: 'j.wilson@email.com', joined: '2024-12-10T12:00:00Z', apps: 2, status: 'inactive' },
-  { id: '5', name: 'Lisa Thompson', email: 'l.thompson@email.com', joined: '2024-12-09T10:00:00Z', apps: 28, status: 'active' },
 ]
 
 const systemServices = [
@@ -60,6 +52,55 @@ const statusBg = { healthy: 'bg-emerald-50', degraded: 'bg-amber-50', down: 'bg-
 
 export default function AdminPage() {
   const [search, setSearch] = useState('')
+  const [stats, setStats] = useState<AdminStats | null>(null)
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [health, setHealth] = useState<HealthData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [statsRes, usersRes, healthRes] = await Promise.all([
+        adminAPI.getStats(),
+        adminAPI.getUsers({ limit: 5 }),
+        adminAPI.getSystemHealth(),
+      ])
+      setStats(statsRes.data.data)
+      setUsers(usersRes.data.data)
+      setHealth(healthRes.data.data)
+    } catch {
+      toast.error('Failed to load admin data — check your admin role')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const syncJobs = async () => {
+    setSyncing(true)
+    try {
+      const res = await adminAPI.getLogs({}) // reuse available method — sync is POST /admin/sync-jobs
+      void res
+    } catch {}
+    // Call sync-jobs directly since adminAPI doesn't have it
+    try {
+      const res = await fetch('/api/admin/sync-jobs', { method: 'POST', headers: { Authorization: `Bearer ${document.cookie.match(/omnify_token=([^;]+)/)?.[1] || ''}` } })
+      const data = await res.json()
+      toast.success(data.message || 'Jobs synced')
+    } catch {
+      toast.error('Sync failed')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const liveStats = stats ? [
+    { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Active (7d)', value: stats.activeUsers, icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Applications', value: stats.totalApplications, icon: ClipboardList, color: 'text-brand-teal', bg: 'bg-brand-aqua/30' },
+    { label: 'Active Jobs', value: stats.totalJobs, icon: Briefcase, color: 'text-purple-600', bg: 'bg-purple-50' },
+  ] : []
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -72,15 +113,21 @@ export default function AdminPage() {
           <Badge variant="teal" className="text-[10px]">Super Admin</Badge>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" leftIcon={<RefreshCw size={13} />}>Refresh</Button>
-          <Button size="sm" leftIcon={<Download size={13} />}>Export Data</Button>
+          <Button variant="secondary" size="sm" leftIcon={<RefreshCw size={13} />} loading={loading} onClick={fetchData}>Refresh</Button>
+          <Button size="sm" leftIcon={<Sparkles size={13} />} loading={syncing} onClick={syncJobs}>Sync Jobs</Button>
         </div>
       </div>
 
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {adminStats.map((s, i) => (
+          {loading ? Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass-card p-5 space-y-3">
+              <Skeleton className="h-9 w-9" rounded />
+              <Skeleton className="h-3 w-24" rounded />
+              <Skeleton className="h-7 w-16" rounded />
+            </div>
+          )) : liveStats.map((s, i) => (
             <motion.div
               key={s.label}
               initial={{ opacity: 0, y: 12 }}
@@ -92,9 +139,6 @@ export default function AdminPage() {
                 <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', s.bg)}>
                   <s.icon size={16} className={s.color} />
                 </div>
-                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg">
-                  +{s.change}%
-                </span>
               </div>
               <p className="text-xs text-slate-500">{s.label}</p>
               <p className="text-2xl font-bold text-slate-800 mt-0.5">{formatNumber(s.value)}</p>
@@ -189,22 +233,24 @@ export default function AdminPage() {
               </div>
             </div>
             <div className="space-y-2.5">
-              {systemServices.map(svc => {
-                const StatusIcon = statusIcon[svc.status as keyof typeof statusIcon]
+              {[
+                { name: 'REST API', status: health?.api ?? 'unknown', detail: health ? `${Math.round(health.uptime)}s uptime` : '—' },
+                { name: 'MongoDB', status: health?.database ?? 'unknown', detail: 'Primary' },
+                ...systemServices.slice(1),
+              ].map(svc => {
+                const s = (svc.status === 'healthy' ? 'healthy' : svc.status === 'degraded' ? 'degraded' : 'down') as 'healthy' | 'degraded' | 'down'
+                const StatusIcon = statusIcon[s]
                 return (
                   <div key={svc.name} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 transition-colors">
-                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', statusBg[svc.status as keyof typeof statusBg])}>
-                      <StatusIcon size={14} className={statusColor[svc.status as keyof typeof statusColor]} />
+                    <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center', statusBg[s])}>
+                      <StatusIcon size={14} className={statusColor[s]} />
                     </div>
                     <div className="flex-1">
                       <p className="text-xs font-semibold text-slate-700">{svc.name}</p>
-                      <p className="text-xs text-slate-400">Latency: {svc.latency}</p>
+                      <p className="text-xs text-slate-400">{'detail' in svc ? svc.detail : ('latency' in svc ? `Latency: ${(svc as {latency: string}).latency}` : '')}</p>
                     </div>
                     <div className="text-right">
-                      <Badge variant={svc.status === 'healthy' ? 'success' : svc.status === 'degraded' ? 'warning' : 'error'}>
-                        {svc.status}
-                      </Badge>
-                      <p className="text-xs text-slate-400 mt-0.5">{svc.uptime} uptime</p>
+                      <Badge variant={s === 'healthy' ? 'success' : s === 'degraded' ? 'warning' : 'error'}>{s}</Badge>
                     </div>
                   </div>
                 )
@@ -233,10 +279,15 @@ export default function AdminPage() {
             </div>
 
             <div className="space-y-2">
-              {recentUsers.filter(u =>
+              {loading ? Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-2.5">
+                  <Skeleton className="w-8 h-8" rounded />
+                  <div className="flex-1 space-y-1.5"><Skeleton className="h-3 w-32" rounded /><Skeleton className="h-2.5 w-48" rounded /></div>
+                </div>
+              )) : users.filter(u =>
                 !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
               ).map(u => (
-                <div key={u.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50/80 transition-colors group cursor-pointer">
+                <div key={u._id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50/80 transition-colors group cursor-pointer">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {u.name.charAt(0)}
                   </div>
@@ -245,7 +296,7 @@ export default function AdminPage() {
                     <p className="text-xs text-slate-400 truncate">{u.email}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">{u.apps} apps</span>
+                    <span className="text-xs text-slate-400">{timeAgo(u.createdAt)}</span>
                     <ChevronRight size={12} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </div>
