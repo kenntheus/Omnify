@@ -52,6 +52,31 @@ router.get('/stats', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: stats })
 }))
 
+// ─── Weekly activity — last 7 days ────────────────────────────
+router.get('/weekly-activity', protect, asyncHandler(async (req, res) => {
+  const userId = req.user._id
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const results = []
+
+  for (let i = 6; i >= 0; i--) {
+    const start = new Date()
+    start.setDate(start.getDate() - i)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(start)
+    end.setHours(23, 59, 59, 999)
+
+    const [applied, responses, interviews] = await Promise.all([
+      Application.countDocuments({ userId, appliedAt: { $gte: start, $lte: end } }),
+      Application.countDocuments({ userId, updatedAt: { $gte: start, $lte: end }, status: { $in: ['reviewing', 'phone_screen', 'offer', 'rejected'] } }),
+      Application.countDocuments({ userId, updatedAt: { $gte: start, $lte: end }, status: { $in: ['interview', 'technical', 'final_interview'] } }),
+    ])
+
+    results.push({ day: DAY_NAMES[start.getDay()], applied, responses, interviews })
+  }
+
+  res.json({ success: true, data: results })
+}))
+
 // ─── Create application ───────────────────────────────────────
 router.post('/', protect, asyncHandler(async (req, res) => {
   const { jobId, resumeId, coverLetter, notes } = req.body
