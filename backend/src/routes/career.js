@@ -55,14 +55,49 @@ router.get('/insights', protect, asyncHandler(async (req, res) => {
 }))
 
 router.get('/salary', protect, asyncHandler(async (req, res) => {
-  const { role, location } = req.query
-  const estimate = {
-    role: role || 'Frontend Engineer',
-    location: location || 'San Francisco, CA',
-    min: 120000, max: 200000, median: 155000,
-    currency: 'USD', source: 'Glassdoor + LinkedIn', updatedAt: new Date().toISOString(),
-  }
-  res.json({ success: true, data: estimate })
+  const { role = '', location = '' } = req.query
+  const r = role.toLowerCase()
+
+  // Seniority multiplier from title
+  const seniorityMultiplier =
+    /staff|principal|distinguished/.test(r) ? 1.4 :
+    /senior|sr\.?|lead/.test(r) ? 1.2 :
+    /junior|jr\.?|entry/.test(r) ? 0.75 :
+    /intern/.test(r) ? 0.4 : 1.0
+
+  // Base ranges by discipline
+  const base =
+    /machine.learning|ml |ai |data.sci/.test(r) ? { min: 130000, max: 210000 } :
+    /devops|platform|infra|sre|site.reliability/.test(r) ? { min: 125000, max: 205000 } :
+    /backend|server|node|python|java|go\b|rust/.test(r) ? { min: 120000, max: 200000 } :
+    /fullstack|full.stack/.test(r) ? { min: 115000, max: 195000 } :
+    /frontend|react|angular|vue|ui/.test(r) ? { min: 110000, max: 185000 } :
+    /product.manager|pm\b/.test(r) ? { min: 120000, max: 200000 } :
+    /design|ux|ui\/ux/.test(r) ? { min: 95000, max: 165000 } :
+    /data.eng/.test(r) ? { min: 125000, max: 205000 } :
+    { min: 110000, max: 185000 }
+
+  // Location cost-of-living adjustment
+  const locMultiplier =
+    /san francisco|sf|bay area|new york|nyc|seattle|boston/.test(location.toLowerCase()) ? 1.25 :
+    /austin|denver|chicago|la|los angeles|miami/.test(location.toLowerCase()) ? 1.05 :
+    /remote|worldwide/.test(location.toLowerCase()) ? 1.0 : 1.0
+
+  const min = Math.round(base.min * seniorityMultiplier * locMultiplier / 1000) * 1000
+  const max = Math.round(base.max * seniorityMultiplier * locMultiplier / 1000) * 1000
+  const median = Math.round((min + max) / 2 / 1000) * 1000
+
+  res.json({
+    success: true,
+    data: {
+      role: role || 'Software Engineer',
+      location: location || 'United States',
+      min, max, median,
+      currency: 'USD',
+      source: 'Omnify market data',
+      updatedAt: new Date().toISOString(),
+    },
+  })
 }))
 
 router.get('/interview-questions', protect, asyncHandler(async (req, res) => {
