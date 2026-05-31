@@ -16,6 +16,7 @@ interface AuthState {
   logout: () => void
   loadUser: () => Promise<void>
   updateUser: (user: Partial<User>) => void
+  setTokens: (token: string, refreshToken: string) => void
   clearError: () => void
 }
 
@@ -89,6 +90,12 @@ export const useAuthStore = create<AuthState>()(
       updateUser: (updates) => {
         const current = get().user
         if (current) set({ user: { ...current, ...updates } })
+      },
+
+      setTokens: (token, refreshToken) => {
+        Cookies.set('omnify_token', token, { expires: 1 })
+        Cookies.set('omnify_refresh', refreshToken, { expires: 7 })
+        set({ token })
       },
 
       clearError: () => set({ error: null }),
