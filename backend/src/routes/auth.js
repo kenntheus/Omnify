@@ -20,6 +20,13 @@ const loginRules = [
 ]
 
 // ─── Routes ───────────────────────────────────────────────────
+const changePasswordRules = [
+  body('currentPassword').notEmpty().withMessage('Current password required'),
+  body('newPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain a number'),
+]
+
 router.post('/register', registerRules, validate, authController.register)
 router.post('/login', loginRules, validate, authController.login)
 router.post('/logout', protect, authController.logout)
@@ -27,5 +34,6 @@ router.get('/me', protect, authController.getMe)
 router.post('/refresh', authController.refreshToken)
 router.post('/forgot-password', authController.forgotPassword)
 router.post('/reset-password', authController.resetPassword)
+router.post('/change-password', protect, changePasswordRules, validate, authController.changePassword)
 
 module.exports = router

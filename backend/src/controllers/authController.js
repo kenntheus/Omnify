@@ -155,6 +155,30 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Password reset link sent to your email', data })
 })
 
+// ─── Change password (authenticated) ─────────────────────────
+exports.changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+
+  const user = await User.findById(req.user._id).select('+password')
+  if (!(await user.comparePassword(currentPassword))) {
+    return res.status(401).json({ success: false, message: 'Current password is incorrect' })
+  }
+
+  user.password = newPassword
+  user.refreshTokens = []
+  await user.save()
+
+  const { token, refreshToken } = generateTokens(user._id)
+  user.refreshTokens = [refreshToken]
+  await user.save({ validateBeforeSave: false })
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully',
+    data: { token, refreshToken },
+  })
+})
+
 // ─── Reset password ───────────────────────────────────────────
 exports.resetPassword = asyncHandler(async (req, res) => {
   const { token, password } = req.body
