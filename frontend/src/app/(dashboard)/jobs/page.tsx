@@ -58,6 +58,7 @@ export default function JobsPage() {
   const [sortBy, setSortBy] = useState<SortOption>('match')
   const [remoteFilter, setRemoteFilter] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<string>('')
+  const [aiSearching, setAiSearching] = useState(false)
 
   const isFirstRun = useRef(true)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -80,6 +81,26 @@ export default function JobsPage() {
       setError(true)
     }
   }, [])
+
+  const handleAiSearch = async () => {
+    setAiSearching(true)
+    setQuery('')
+    setLocation('')
+    setRemoteFilter('')
+    setTypeFilter('')
+    try {
+      const res = await jobsAPI.getRecommended({ limit: 20 })
+      const fetched: Job[] = res.data.data
+      setJobs(fetched)
+      setSelectedJob(fetched[0] ?? null)
+      toast.success('Showing AI-recommended jobs based on your profile')
+    } catch {
+      toast.error('AI search failed — showing all jobs')
+      await fetchJobs({})
+    } finally {
+      setAiSearching(false)
+    }
+  }
 
   // Initial load
   useEffect(() => {
@@ -221,7 +242,7 @@ export default function JobsPage() {
               </span>
             )}
           </Button>
-          <Button leftIcon={<Sparkles size={15} />}>
+          <Button leftIcon={<Sparkles size={15} />} loading={aiSearching} onClick={handleAiSearch}>
             AI Search
           </Button>
         </div>

@@ -52,6 +52,8 @@ export default function CareerAssistantPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [activeInsight, setActiveInsight] = useState(0)
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
+  const [dislikedIds, setDislikedIds] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -294,8 +296,22 @@ export default function CareerAssistantPage() {
 
                 {!msg.loading && msg.role === 'assistant' && (
                   <div className="flex items-center gap-1 px-1">
-                    <button className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"><ThumbsUp size={12} /></button>
-                    <button className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"><ThumbsDown size={12} /></button>
+                    <button
+                      onClick={() => {
+                        setLikedIds(prev => { const n = new Set(prev); n.has(msg.id) ? n.delete(msg.id) : n.add(msg.id); return n })
+                        setDislikedIds(prev => { const n = new Set(prev); n.delete(msg.id); return n })
+                      }}
+                      className={cn('p-1 rounded cursor-pointer transition-colors', likedIds.has(msg.id) ? 'text-emerald-500' : 'text-slate-300 hover:text-slate-500')}
+                      aria-label="Helpful"
+                    ><ThumbsUp size={12} /></button>
+                    <button
+                      onClick={() => {
+                        setDislikedIds(prev => { const n = new Set(prev); n.has(msg.id) ? n.delete(msg.id) : n.add(msg.id); return n })
+                        setLikedIds(prev => { const n = new Set(prev); n.delete(msg.id); return n })
+                      }}
+                      className={cn('p-1 rounded cursor-pointer transition-colors', dislikedIds.has(msg.id) ? 'text-red-400' : 'text-slate-300 hover:text-slate-500')}
+                      aria-label="Not helpful"
+                    ><ThumbsDown size={12} /></button>
                     <button
                       onClick={() => navigator.clipboard.writeText(msg.content)}
                       className="p-1 rounded text-slate-300 hover:text-slate-500 cursor-pointer"
