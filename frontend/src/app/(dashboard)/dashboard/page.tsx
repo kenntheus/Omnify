@@ -20,6 +20,7 @@ import { cn, getStatusConfig, formatSalary, formatDateTime } from '@/lib/utils'
 import { applicationsAPI, jobsAPI } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 import type { ApplicationStats, Job, Application } from '@/types'
+import toast from 'react-hot-toast'
 
 // ── Logo color helper ──────────────────────────────────────────
 const LOGO_GRADIENTS = [
@@ -80,6 +81,20 @@ export default function DashboardPage() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(() =>
     typeof window !== 'undefined' && localStorage.getItem('omnify-onboarding-dismissed') === '1'
   )
+  const [applyingIds, setApplyingIds] = useState<Set<string>>(new Set())
+
+  const applyJob = async (jobId: string) => {
+    setApplyingIds(prev => new Set(prev).add(jobId))
+    try {
+      await applicationsAPI.autoApply(jobId, undefined as unknown as string, {})
+      toast.success('Application submitted!')
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg || 'Failed to apply')
+    } finally {
+      setApplyingIds(prev => { const next = new Set(prev); next.delete(jobId); return next })
+    }
+  }
 
   useEffect(() => {
     const hour = new Date().getHours()
@@ -476,6 +491,8 @@ export default function DashboardPage() {
                         variant="ghost"
                         size="xs"
                         className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-teal"
+                        loading={applyingIds.has(job._id)}
+                        onClick={() => applyJob(job._id)}
                       >
                         Apply
                       </Button>
