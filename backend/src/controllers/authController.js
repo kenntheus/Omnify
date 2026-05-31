@@ -1,6 +1,7 @@
 const User = require('../models/User')
 const { generateTokens } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
+const { sendEmail } = require('../utils/mailer')
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 
@@ -123,11 +124,33 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
   user.passwordResetExpires = Date.now() + 30 * 60 * 1000 // 30 min
   await user.save({ validateBeforeSave: false })
 
-  // In production, send email here
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`
-  console.log('Password reset URL:', resetUrl)
 
-  // Expose token in dev so the UI can surface it without email
+  await sendEmail({
+    to: user.email,
+    subject: 'Reset your Omnify password',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <h2 style="color:#0f172a;margin-bottom:8px">Reset your password</h2>
+        <p style="color:#475569;margin-bottom:24px">
+          We received a request to reset the password for your Omnify account.
+          Click the button below to choose a new password. This link expires in 30 minutes.
+        </p>
+        <a href="${resetUrl}"
+           style="display:inline-block;background:#00c2a8;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px">
+          Reset Password
+        </a>
+        <p style="color:#94a3b8;font-size:13px;margin-top:24px">
+          If you didn't request this, you can safely ignore this email.
+        </p>
+        <p style="color:#94a3b8;font-size:12px;margin-top:8px">
+          Or copy this link: <a href="${resetUrl}" style="color:#00c2a8">${resetUrl}</a>
+        </p>
+      </div>
+    `,
+  })
+
+  // Expose token in dev so the UI can surface it without needing SMTP
   const data = process.env.NODE_ENV !== 'production' ? { resetToken: token } : undefined
   res.json({ success: true, message: 'Password reset link sent to your email', data })
 })
