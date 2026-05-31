@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   Users, Briefcase, ClipboardList, TrendingUp, Activity, Shield,
   Database, Cpu, CheckCircle, AlertCircle, XCircle, ChevronRight,
-  Search, Download, RefreshCw, Sparkles, ArrowLeft
+  Search, Download, RefreshCw, Sparkles
 } from 'lucide-react'
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import Badge from '@/components/ui/Badge'
@@ -62,29 +62,22 @@ export default function AdminPage() {
   const [search, setSearch] = useState('')
 
   return (
-    <div className="min-h-dvh bg-mesh bg-brand-white">
-      {/* Admin header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-glass border-b border-slate-100/80 px-6 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
-            <ArrowLeft size={15} /> Back to App
-          </Link>
-          <div className="w-px h-4 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center">
-              <Shield size={14} className="text-white" />
-            </div>
-            <span className="font-bold text-slate-800">Admin Panel</span>
-            <Badge variant="teal" className="text-[10px]">Super Admin</Badge>
+    <div className="space-y-6 max-w-7xl">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-teal to-primary-500 flex items-center justify-center">
+            <Shield size={14} className="text-white" />
           </div>
+          <h1 className="page-title">Admin Panel</h1>
+          <Badge variant="teal" className="text-[10px]">Super Admin</Badge>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="secondary" size="sm" leftIcon={<RefreshCw size={13} />}>Refresh</Button>
           <Button size="sm" leftIcon={<Download size={13} />}>Export Data</Button>
         </div>
-      </header>
+      </div>
 
-      <main className="px-6 py-6 max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {adminStats.map((s, i) => (
@@ -264,7 +257,7 @@ export default function AdminPage() {
             </button>
           </motion.div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
