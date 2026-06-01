@@ -73,9 +73,13 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 }))
 
 router.put('/:id', protect, asyncHandler(async (req, res) => {
+  const { content } = req.body
+  if (!content?.trim()) return res.status(400).json({ success: false, message: 'content is required' })
+  if (content.length > 10000) return res.status(400).json({ success: false, message: 'content must be 10000 characters or fewer' })
+
   const cover = await CoverLetter.findOneAndUpdate(
     { _id: req.params.id, userId: req.user._id },
-    { content: req.body.content, edited: true },
+    { content, edited: true },
     { new: true }
   )
   if (!cover) return res.status(404).json({ success: false, message: 'Cover letter not found' })
