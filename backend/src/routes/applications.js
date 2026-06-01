@@ -159,21 +159,25 @@ router.post('/:id/interviews', protect, asyncHandler(async (req, res) => {
   const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
   if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
 
-  application.interviews.push(req.body)
+  const VALID_TYPES = ['phone', 'video', 'onsite', 'technical', 'panel']
+  const { type, scheduledAt, duration, location, meetingLink, interviewer, notes } = req.body
+  if (!VALID_TYPES.includes(type)) return res.status(400).json({ success: false, message: `type must be one of: ${VALID_TYPES.join(', ')}` })
+
+  application.interviews.push({ type, scheduledAt, duration, location, meetingLink, interviewer, notes })
   application.status = 'interview'
-  application.timeline.push({ status: 'interview', note: `${req.body.type} interview scheduled` })
+  application.timeline.push({ status: 'interview', note: `${type} interview scheduled` })
   await application.save()
 
-  const interviewDate = req.body.scheduledAt
-    ? new Date(req.body.scheduledAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+  const interviewDate = scheduledAt
+    ? new Date(scheduledAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
     : 'soon'
   notify({
     userId: req.user._id,
     type: 'interview_reminder',
     title: 'Interview scheduled',
-    message: `A ${req.body.type} interview has been scheduled for ${interviewDate}.`,
+    message: `A ${type} interview has been scheduled for ${interviewDate}.`,
     actionUrl: '/applications',
-    metadata: { scheduledAt: req.body.scheduledAt, type: req.body.type },
+    metadata: { scheduledAt, type },
   })
 
   res.json({ success: true, data: application })
