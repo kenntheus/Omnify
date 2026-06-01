@@ -2,6 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const { notify } = require('../utils/notify')
 const path = require('path')
+const fs = require('fs')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
@@ -128,6 +129,17 @@ router.put('/:id/default', protect, asyncHandler(async (req, res) => {
   )
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
   res.json({ success: true, data: resume, message: 'Default resume updated' })
+}))
+
+// ─── Serve resume file (authenticated) ───────────────────────
+router.get('/:id/file', protect, asyncHandler(async (req, res) => {
+  const resume = await Resume.findOne({ _id: req.params.id, userId: req.user._id })
+  if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
+
+  const filePath = path.join(__dirname, '../../uploads/resumes', path.basename(resume.fileUrl))
+  if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File not found' })
+
+  res.sendFile(filePath)
 }))
 
 // ─── Delete resume ────────────────────────────────────────────
