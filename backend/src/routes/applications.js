@@ -183,6 +183,7 @@ router.post('/:id/interviews', protect, asyncHandler(async (req, res) => {
 router.post('/:id/notes', protect, asyncHandler(async (req, res) => {
   const { note } = req.body
   if (!note?.trim()) return res.status(400).json({ success: false, message: 'note is required' })
+  if (note.length > 5000) return res.status(400).json({ success: false, message: 'note must be 5000 characters or fewer' })
 
   const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
   if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
@@ -206,6 +207,10 @@ router.delete('/:id', protect, asyncHandler(async (req, res) => {
 router.post('/manual', protect, asyncHandler(async (req, res) => {
   const { company, title, url, status = 'applied', appliedAt, notes } = req.body
   if (!company || !title) return res.status(400).json({ success: false, message: 'company and title are required' })
+  if (company.length > 200) return res.status(400).json({ success: false, message: 'company must be 200 characters or fewer' })
+  if (title.length > 200) return res.status(400).json({ success: false, message: 'title must be 200 characters or fewer' })
+  if (url && url.length > 2000) return res.status(400).json({ success: false, message: 'url must be 2000 characters or fewer' })
+  if (notes && notes.length > 5000) return res.status(400).json({ success: false, message: 'notes must be 5000 characters or fewer' })
 
   const Job = require('../models/Job')
 
