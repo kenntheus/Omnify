@@ -32,10 +32,14 @@ router.put('/profile', protect, asyncHandler(async (req, res) => {
 }))
 
 router.put('/preferences', protect, asyncHandler(async (req, res) => {
+  const allowed = ['emailNotifications', 'pushNotifications', 'weeklyDigest', 'jobAlerts', 'theme', 'language', 'currency', 'dateFormat']
+  const updates = {}
+  allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f] })
+
   const user = await User.findByIdAndUpdate(
     req.user._id,
-    { preferences: { ...req.user.preferences.toObject(), ...req.body } },
-    { new: true }
+    { preferences: { ...req.user.preferences.toObject(), ...updates } },
+    { new: true, runValidators: true }
   )
   res.json({ success: true, data: user.preferences })
 }))
