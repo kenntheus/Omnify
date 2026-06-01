@@ -27,6 +27,12 @@ router.get('/users', asyncHandler(async (req, res) => {
   res.json({ success: true, data: users, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } })
 }))
 
+router.get('/users/:id', asyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id)
+  if (!user) return res.status(404).json({ success: false, message: 'User not found' })
+  res.json({ success: true, data: user })
+}))
+
 router.put('/users/:id', asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true })
   if (!user) return res.status(404).json({ success: false, message: 'User not found' })

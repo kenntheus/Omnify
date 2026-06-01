@@ -179,6 +179,22 @@ router.post('/:id/interviews', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: application })
 }))
 
+// ─── Add note ─────────────────────────────────────────────────
+router.post('/:id/notes', protect, asyncHandler(async (req, res) => {
+  const { note } = req.body
+  if (!note?.trim()) return res.status(400).json({ success: false, message: 'note is required' })
+
+  const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
+  if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
+
+  application.notes = application.notes
+    ? `${application.notes}\n\n${note.trim()}`
+    : note.trim()
+  await application.save()
+
+  res.json({ success: true, data: application })
+}))
+
 // ─── Delete application ───────────────────────────────────────
 router.delete('/:id', protect, asyncHandler(async (req, res) => {
   const application = await Application.findOneAndDelete({ _id: req.params.id, userId: req.user._id })
