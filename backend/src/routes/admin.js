@@ -20,11 +20,16 @@ router.get('/stats', asyncHandler(async (req, res) => {
 
 router.get('/users', asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, search } = req.query
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100)
   const filter = {}
-  if (search) filter.$or = [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }]
-  const users = await User.find(filter).sort({ createdAt: -1 }).skip((Number(page) - 1) * Number(limit)).limit(Number(limit))
+  if (search) {
+    const escaped = escapeRegex(search)
+    filter.$or = [{ name: { $regex: escaped, $options: 'i' } }, { email: { $regex: escaped, $options: 'i' } }]
+  }
+  const users = await User.find(filter).sort({ createdAt: -1 }).skip((Number(page) - 1) * safeLimit).limit(safeLimit)
   const total = await User.countDocuments(filter)
-  res.json({ success: true, data: users, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } })
+  res.json({ success: true, data: users, pagination: { total, page: Number(page), limit: safeLimit, pages: Math.ceil(total / safeLimit) } })
 }))
 
 router.get('/users/:id', asyncHandler(async (req, res) => {
@@ -34,7 +39,10 @@ router.get('/users/:id', asyncHandler(async (req, res) => {
 }))
 
 router.put('/users/:id', asyncHandler(async (req, res) => {
-  const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true })
+  const allowed = ['name', 'email', 'role', 'subscription', 'isActive']
+  const updates = {}
+  allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f] })
+  const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
   if (!user) return res.status(404).json({ success: false, message: 'User not found' })
   res.json({ success: true, data: user })
 }))
