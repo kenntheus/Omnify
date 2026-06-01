@@ -61,8 +61,8 @@ app.use('/api', limiter)
 app.use('/api/auth', authLimiter)
 
 // Body parsing
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+app.use(express.json({ limit: '1mb' }))
+app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 
 // Sanitization
 app.use(mongoSanitize())
@@ -72,8 +72,8 @@ app.use(hpp())
 app.use(compression())
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'))
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+// Avatars are public; resumes require auth (served via /api/resumes/:id/file)
+app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')))
 
 // ─── Routes ──────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
@@ -93,7 +93,6 @@ app.get('/api/health', (req, res) => {
     message: 'Omnify API is running',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
   })
 })
 
