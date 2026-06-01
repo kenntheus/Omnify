@@ -21,6 +21,8 @@ exports.register = asyncHandler(async (req, res) => {
   user.refreshTokens = [refreshToken]
   await user.save({ validateBeforeSave: false })
 
+  user.password = undefined
+
   res.status(201).json({
     success: true,
     message: 'Account created successfully',
@@ -200,6 +202,8 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   await user.save()
 
   const { token: newToken, refreshToken } = generateTokens(user._id)
+  user.refreshTokens = [refreshToken]
+  await user.save({ validateBeforeSave: false })
 
   res.json({
     success: true,
