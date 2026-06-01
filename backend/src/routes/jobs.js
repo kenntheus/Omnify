@@ -13,10 +13,13 @@ router.get('/search', protect, asyncHandler(async (req, res) => {
     experience, page = 1, limit = 20,
   } = req.query
 
+  const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100)
+
   const filter = { isActive: true }
 
   if (query) filter.$text = { $search: query }
-  if (location) filter.location = { $regex: location, $options: 'i' }
+  if (location) filter.location = { $regex: escapeRegex(location), $options: 'i' }
   if (remote) filter.remote = remote
   if (type) filter.type = type
   if (salary_min || salary_max) {
@@ -25,12 +28,12 @@ router.get('/search', protect, asyncHandler(async (req, res) => {
     if (salary_max) filter['salary.max'] = { $lte: Number(salary_max) }
   }
 
-  const skip = (Number(page) - 1) * Number(limit)
+  const skip = (Number(page) - 1) * safeLimit
   const total = await Job.countDocuments(filter)
   const jobs = await Job.find(filter)
     .sort({ postedAt: -1 })
     .skip(skip)
-    .limit(Number(limit))
+    .limit(safeLimit)
     .lean()
 
   // Mark applied/saved jobs
@@ -48,9 +51,9 @@ router.get('/search', protect, asyncHandler(async (req, res) => {
     data: enriched,
     pagination: {
       page: Number(page),
-      limit: Number(limit),
+      limit: safeLimit,
       total,
-      pages: Math.ceil(total / Number(limit)),
+      pages: Math.ceil(total / safeLimit),
       hasNext: skip + jobs.length < total,
       hasPrev: Number(page) > 1,
     },
