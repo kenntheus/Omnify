@@ -27,13 +27,24 @@ const changePasswordRules = [
     .matches(/[0-9]/).withMessage('Password must contain a number'),
 ]
 
+const forgotPasswordRules = [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+]
+
+const resetPasswordRules = [
+  body('token').notEmpty().withMessage('Reset token required'),
+  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain an uppercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain a number'),
+]
+
 router.post('/register', registerRules, validate, authController.register)
 router.post('/login', loginRules, validate, authController.login)
 router.post('/logout', protect, authController.logout)
 router.get('/me', protect, authController.getMe)
 router.post('/refresh', authController.refreshToken)
-router.post('/forgot-password', authController.forgotPassword)
-router.post('/reset-password', authController.resetPassword)
+router.post('/forgot-password', forgotPasswordRules, validate, authController.forgotPassword)
+router.post('/reset-password', resetPasswordRules, validate, authController.resetPassword)
 router.post('/change-password', protect, changePasswordRules, validate, authController.changePassword)
 
 module.exports = router
