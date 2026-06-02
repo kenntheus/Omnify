@@ -1,4 +1,4 @@
-# Omnify
+# Omnify - AI-Powered Job Automation Platform
 
 Omnify is a full-stack AI job automation platform built to take the grind out of job hunting. It brings together resume analysis, job matching, automated applications, and career coaching in one place so you can focus on the interviews, not the spreadsheets.
 
@@ -40,4 +40,3 @@ User management, platform growth charts, top skills in demand, and system health
 | Backend | Node.js, Express.js, JWT + refresh token rotation, Multer, express-validator |
 | AI Service | Python, FastAPI, Playwright, spaCy, sentence-transformers |
 | Database | MongoDB, Mongoose |
-| Security | Helmet, rate limiting, mongo-sanitize, HPP, bcrypt (12 rounds) |
