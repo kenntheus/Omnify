@@ -7,8 +7,6 @@ const compression = require('compression')
 const rateLimit = require('express-rate-limit')
 const mongoSanitize = require('express-mongo-sanitize')
 const hpp = require('hpp')
-const path = require('path')
-const fs = require('fs')
 const dotenv = require('dotenv')
 
 // Load env variables
@@ -83,9 +81,6 @@ app.use(hpp())
 app.use(compression())
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
-// Avatars are public; resumes require auth (served via /api/resumes/:id/file)
-app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')))
-
 // ─── Routes ──────────────────────────────────────────────────
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
@@ -132,11 +127,6 @@ const connectDB = async () => {
 
 // ─── Start server ─────────────────────────────────────────────
 const startServer = async () => {
-  // Ensure upload directories exist before multer tries to write to them
-  ;['uploads/avatars', 'uploads/resumes'].forEach(dir => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  })
-
   await connectDB()
   const server = app.listen(PORT, () => {
     console.log(`🚀 Omnify API running on http://localhost:${PORT}`)
