@@ -66,6 +66,8 @@ router.get('/insights', protect, asyncHandler(async (req, res) => {
 
 router.get('/salary', protect, asyncHandler(async (req, res) => {
   const { role = '', location = '' } = req.query
+  if (role.length > 200) return res.status(400).json({ success: false, message: 'role must be 200 characters or fewer' })
+  if (location.length > 200) return res.status(400).json({ success: false, message: 'location must be 200 characters or fewer' })
   const r = role.toLowerCase()
 
   // Seniority multiplier from title
