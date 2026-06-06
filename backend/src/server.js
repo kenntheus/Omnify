@@ -41,6 +41,7 @@ const PORT = process.env.PORT || 5000
 // ─── Security Middleware ──────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
 }))
 
 const corsOrigin = process.env.FRONTEND_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : undefined)
