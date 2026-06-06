@@ -137,10 +137,23 @@ const startServer = async () => {
   })
 
   await connectDB()
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Omnify API running on http://localhost:${PORT}`)
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
   })
+
+  const shutdown = async (signal) => {
+    console.log(`${signal} received — shutting down gracefully`)
+    server.close(async () => {
+      await mongoose.connection.close()
+      console.log('Server and database connections closed')
+      process.exit(0)
+    })
+    setTimeout(() => { console.error('Forced shutdown after timeout'); process.exit(1) }, 10000)
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
 startServer()
