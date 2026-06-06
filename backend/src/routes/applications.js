@@ -231,6 +231,9 @@ router.post('/manual', protect, asyncHandler(async (req, res) => {
   if (title.length > 200) return res.status(400).json({ success: false, message: 'title must be 200 characters or fewer' })
   if (url && url.length > 2000) return res.status(400).json({ success: false, message: 'url must be 2000 characters or fewer' })
   if (notes && notes.length > 5000) return res.status(400).json({ success: false, message: 'notes must be 5000 characters or fewer' })
+  const VALID_STATUSES = ['saved', 'applied', 'pending', 'reviewing', 'phone_screen', 'interview', 'technical', 'final_interview', 'offer', 'accepted', 'rejected', 'withdrawn']
+  if (!VALID_STATUSES.includes(status)) return res.status(400).json({ success: false, message: `status must be one of: ${VALID_STATUSES.join(', ')}` })
+  if (appliedAt && isNaN(new Date(appliedAt).getTime())) return res.status(400).json({ success: false, message: 'appliedAt must be a valid date' })
 
   const Job = require('../models/Job')
 
