@@ -1,9 +1,19 @@
 const express = require('express')
 const multer = require('multer')
 const path = require('path')
+const rateLimit = require('express-rate-limit')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { success: false, message: 'Too many AI requests, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 const Resume = require('../models/Resume')
 const cloudinary = require('../config/cloudinary')
 const { uploadStream } = require('../utils/cloudinaryUpload')
@@ -24,8 +34,17 @@ const upload = multer({
 })
 
 // ─── Upload resume ────────────────────────────────────────────
+function validateMagicBytes(buffer, mimetype) {
+  if (mimetype.includes('pdf')) return buffer.slice(0, 4).toString('binary') === '%PDF'
+  // DOCX is a ZIP container: PK\x03\x04
+  return buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04
+}
+
 router.post('/upload', protect, upload.single('resume'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' })
+  if (!validateMagicBytes(req.file.buffer, req.file.mimetype)) {
+    return res.status(400).json({ success: false, message: 'File content does not match the declared type' })
+  }
 
   const fileType = req.file.mimetype.includes('pdf') ? 'pdf' : 'docx'
   const publicId = `resume-${req.user._id}-${Date.now()}`
@@ -70,7 +89,7 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
 }))
 
 // ─── Analyze resume (calls AI service) ───────────────────────
-router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
+router.post('/:id/analyze', protect, aiLimiter, asyncHandler(async (req, res) => {
   const resume = await Resume.findOne({ _id: req.params.id, userId: req.user._id })
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
 
