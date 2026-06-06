@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit')
 const mongoSanitize = require('express-mongo-sanitize')
 const hpp = require('hpp')
 const path = require('path')
+const fs = require('fs')
 const dotenv = require('dotenv')
 
 // Load env variables
@@ -120,6 +121,11 @@ const connectDB = async () => {
 
 // ─── Start server ─────────────────────────────────────────────
 const startServer = async () => {
+  // Ensure upload directories exist before multer tries to write to them
+  ;['uploads/avatars', 'uploads/resumes'].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  })
+
   await connectDB()
   app.listen(PORT, () => {
     console.log(`🚀 Omnify API running on http://localhost:${PORT}`)
