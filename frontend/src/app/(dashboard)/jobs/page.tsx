@@ -133,6 +133,22 @@ export default function JobsPage() {
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
   }, [query, location, remoteFilter, typeFilter, fetchJobs])
 
+  // Fetch match score on demand when a job from regular search has none
+  useEffect(() => {
+    if (!selectedJob || selectedJob.matchScore != null) return
+    let cancelled = false
+    jobsAPI.getMatchScore(selectedJob._id)
+      .then(res => {
+        if (cancelled) return
+        const score: number = res.data.data.matchScore
+        setJobs(prev => prev.map(j => j._id === selectedJob._id ? { ...j, matchScore: score } : j))
+        setSelectedJob(prev => prev?._id === selectedJob._id ? { ...prev, matchScore: score } : prev)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedJob?._id])
+
   const toggleSave = async (job: Job, e: React.MouseEvent) => {
     e.stopPropagation()
     if (savingIds.has(job._id)) return

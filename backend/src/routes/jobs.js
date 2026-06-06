@@ -97,6 +97,20 @@ router.get('/saved', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: saved.map(s => ({ job: s.jobId, savedAt: s.createdAt })) })
 }))
 
+// ─── Get match score for a job ────────────────────────────────
+router.get('/:id/match-score', protect, asyncHandler(async (req, res) => {
+  const job = await Job.findById(req.params.id).lean()
+  if (!job) return res.status(404).json({ success: false, message: 'Job not found' })
+
+  const userSkills = req.user.profile?.skills || []
+  const matchedSkills = job.skills?.filter(s => userSkills.includes(s)) || []
+  const matchScore = job.skills?.length > 0
+    ? Math.round(60 + (matchedSkills.length / job.skills.length) * 40)
+    : 60
+
+  res.json({ success: true, data: { matchScore, matchedSkills } })
+}))
+
 // ─── Get job by ID ────────────────────────────────────────────
 router.get('/:id', protect, asyncHandler(async (req, res) => {
   const job = await Job.findByIdAndUpdate(
