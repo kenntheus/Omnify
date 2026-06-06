@@ -101,6 +101,10 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
 router.post('/', protect, asyncHandler(async (req, res) => {
   const { jobId, resumeId, coverLetter, notes } = req.body
 
+  const Job = require('../models/Job')
+  const job = await Job.findById(jobId)
+  if (!job) return res.status(404).json({ success: false, message: 'Job not found' })
+
   const existing = await Application.findOne({ userId: req.user._id, jobId })
   if (existing) {
     if (existing.status === 'saved') {
@@ -142,6 +146,7 @@ router.put('/:id/status', protect, asyncHandler(async (req, res) => {
   const { status, note } = req.body
   const VALID_STATUSES = ['saved', 'applied', 'pending', 'reviewing', 'phone_screen', 'interview', 'technical', 'final_interview', 'offer', 'accepted', 'rejected', 'withdrawn']
   if (!VALID_STATUSES.includes(status)) return res.status(400).json({ success: false, message: `status must be one of: ${VALID_STATUSES.join(', ')}` })
+  if (note && note.length > 1000) return res.status(400).json({ success: false, message: 'note must be 1000 characters or fewer' })
 
   const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
   if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
@@ -219,9 +224,10 @@ router.post('/:id/notes', protect, asyncHandler(async (req, res) => {
   const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
   if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
 
-  application.notes = application.notes
-    ? `${application.notes}\n\n${note.trim()}`
-    : note.trim()
+  const current = application.notes || ''
+  const appended = current ? `${current}\n\n${note.trim()}` : note.trim()
+  if (appended.length > 50000) return res.status(400).json({ success: false, message: 'Total notes cannot exceed 50000 characters' })
+  application.notes = appended
   await application.save()
 
   res.json({ success: true, data: application })
@@ -315,10 +321,14 @@ router.post('/auto-apply', protect, aiLimiter, asyncHandler(async (req, res) => 
   if (!job.sourceUrl) return res.status(400).json({ success: false, message: 'No external application URL available for this job' })
 
   // Resolve resume: provided > default > most recent
-  const resume = resumeId
-    ? await Resume.findOne({ _id: resumeId, userId: req.user._id })
-    : (await Resume.findOne({ userId: req.user._id, isDefault: true })) ||
+  let resume
+  if (resumeId) {
+    resume = await Resume.findOne({ _id: resumeId, userId: req.user._id })
+    if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
+  } else {
+    resume = (await Resume.findOne({ userId: req.user._id, isDefault: true })) ||
       (await Resume.findOne({ userId: req.user._id }).sort({ createdAt: -1 }))
+  }
 
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000'
   const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000'
