@@ -6,10 +6,11 @@ const Notification = require('../models/Notification')
 
 router.get('/', protect, asyncHandler(async (req, res) => {
   const { page = 1, limit = 20 } = req.query
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100)
   const notifs = await Notification.find({ userId: req.user._id })
     .sort({ createdAt: -1 })
-    .skip((Number(page) - 1) * Number(limit))
-    .limit(Number(limit))
+    .skip((Number(page) - 1) * safeLimit)
+    .limit(safeLimit)
   res.json({ success: true, data: notifs })
 }))
 
