@@ -1,8 +1,18 @@
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const axios = require('axios')
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { success: false, message: 'Too many AI requests, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 router.get('/insights', protect, asyncHandler(async (req, res) => {
   const Job = require('../models/Job')
@@ -102,7 +112,10 @@ router.get('/salary', protect, asyncHandler(async (req, res) => {
 
 router.get('/interview-questions', protect, asyncHandler(async (req, res) => {
   const { skills = '', jobId } = req.query
-  const requestedSkills = skills ? skills.split(',').map(s => s.trim().toLowerCase()) : (req.user.profile?.skills || []).map(s => s.toLowerCase())
+  if (skills.length > 500) return res.status(400).json({ success: false, message: 'skills query must be 500 characters or fewer' })
+  const requestedSkills = skills
+    ? skills.split(',').slice(0, 20).map(s => s.trim().substring(0, 100).toLowerCase())
+    : (req.user.profile?.skills || []).map(s => s.toLowerCase())
 
   // Question bank keyed by skill/topic
   const BANK = {
@@ -200,7 +213,7 @@ router.get('/skill-recommendations', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: recommendations })
 }))
 
-router.post('/chat', protect, asyncHandler(async (req, res) => {
+router.post('/chat', protect, aiLimiter, asyncHandler(async (req, res) => {
   const { message, context } = req.body
   if (!message?.trim()) return res.status(400).json({ success: false, message: 'message is required' })
   if (message.length > 2000) return res.status(400).json({ success: false, message: 'message must be 2000 characters or fewer' })
