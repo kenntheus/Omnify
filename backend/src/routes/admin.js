@@ -56,6 +56,40 @@ router.get('/health', asyncHandler(async (req, res) => {
   res.json({ success: true, data: { api: 'healthy', database: 'healthy', uptime: process.uptime() } })
 }))
 
+// ─── Recent activity logs ─────────────────────────────────────
+router.get('/logs', asyncHandler(async (req, res) => {
+  const { limit = 50 } = req.query
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 50), 200)
+
+  const [recentUsers, recentApps] = await Promise.all([
+    User.find().sort({ createdAt: -1 }).limit(safeLimit).select('name email createdAt').lean(),
+    Application.find().sort({ updatedAt: -1 }).limit(safeLimit)
+      .populate('userId', 'name email')
+      .populate('jobId', 'title')
+      .lean(),
+  ])
+
+  const logs = [
+    ...recentUsers.map(u => ({
+      type: 'auth',
+      action: 'user_registered',
+      user: u.name,
+      email: u.email,
+      timestamp: u.createdAt,
+    })),
+    ...recentApps.map(a => ({
+      type: 'application',
+      action: `application_${a.status}`,
+      user: a.userId?.name || 'Unknown',
+      email: a.userId?.email || '',
+      details: a.jobId?.title || 'Unknown job',
+      timestamp: a.updatedAt,
+    })),
+  ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, safeLimit)
+
+  res.json({ success: true, data: logs })
+}))
+
 // ─── Platform growth — last 6 months ─────────────────────────
 router.get('/growth', asyncHandler(async (req, res) => {
   const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
