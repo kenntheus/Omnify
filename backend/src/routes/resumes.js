@@ -58,6 +58,13 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: resumes })
 }))
 
+// ─── Get resume by ID ─────────────────────────────────────────
+router.get('/:id', protect, asyncHandler(async (req, res) => {
+  const resume = await Resume.findOne({ _id: req.params.id, userId: req.user._id })
+  if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
+  res.json({ success: true, data: resume })
+}))
+
 // ─── Analyze resume (calls AI service) ───────────────────────
 router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
   const resume = await Resume.findOne({ _id: req.params.id, userId: req.user._id })
