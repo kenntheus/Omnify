@@ -4,6 +4,7 @@ const resumeSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   fileName: { type: String, required: true },
   fileUrl: { type: String, required: true },
+  cloudinaryPublicId: String,
   fileType: { type: String, enum: ['pdf', 'docx'], required: true },
   fileSize: Number,
   isDefault: { type: Boolean, default: false },
