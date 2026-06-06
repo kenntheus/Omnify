@@ -63,6 +63,7 @@ router.get('/search', protect, asyncHandler(async (req, res) => {
 // ─── Get AI-recommended jobs ──────────────────────────────────
 router.get('/recommended', protect, asyncHandler(async (req, res) => {
   const { page = 1, limit = 10 } = req.query
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 10), 50)
   const userSkills = req.user.profile?.skills || []
 
   const jobs = await Job.find({
@@ -82,8 +83,8 @@ router.get('/recommended', protect, asyncHandler(async (req, res) => {
     return { ...job, matchScore }
   }).sort((a, b) => b.matchScore - a.matchScore)
 
-  const skip = (Number(page) - 1) * Number(limit)
-  const paginated = scored.slice(skip, skip + Number(limit))
+  const skip = (Number(page) - 1) * safeLimit
+  const paginated = scored.slice(skip, skip + safeLimit)
 
   res.json({ success: true, data: paginated })
 }))
