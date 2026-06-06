@@ -12,7 +12,7 @@ const applicationSchema = new mongoose.Schema({
   appliedAt: Date,
   resumeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resume' },
   coverLetter: String,
-  notes: String,
+  notes: { type: String, maxlength: 5000 },
   timeline: [{
     status: String,
     date: { type: Date, default: Date.now },
