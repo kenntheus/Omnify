@@ -1,4 +1,5 @@
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
@@ -6,11 +7,27 @@ const axios = require('axios')
 
 const CoverLetter = require('../models/CoverLetter')
 
-router.post('/generate', protect, asyncHandler(async (req, res) => {
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { success: false, message: 'Too many AI requests, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
+router.post('/generate', protect, aiLimiter, asyncHandler(async (req, res) => {
   // jobId + resumeId for AI-linked generation; title + company for free-text flow
   const { jobId, resumeId, tone = 'professional', title, company } = req.body
   const VALID_TONES = ['professional', 'enthusiastic', 'formal', 'creative']
   if (!VALID_TONES.includes(tone)) return res.status(400).json({ success: false, message: `tone must be one of: ${VALID_TONES.join(', ')}` })
+
+  // Verify the resume belongs to the requesting user
+  if (resumeId) {
+    const Resume = require('../models/Resume')
+    const resume = await Resume.findOne({ _id: resumeId, userId: req.user._id })
+    if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
+  }
 
   // Resolve display values for the fallback template
   let jobTitle = title || '[Position]'
