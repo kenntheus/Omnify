@@ -130,6 +130,8 @@ router.post('/', protect, asyncHandler(async (req, res) => {
 // ─── Update status ────────────────────────────────────────────
 router.put('/:id/status', protect, asyncHandler(async (req, res) => {
   const { status, note } = req.body
+  const VALID_STATUSES = ['saved', 'applied', 'pending', 'reviewing', 'phone_screen', 'interview', 'technical', 'final_interview', 'offer', 'accepted', 'rejected', 'withdrawn']
+  if (!VALID_STATUSES.includes(status)) return res.status(400).json({ success: false, message: `status must be one of: ${VALID_STATUSES.join(', ')}` })
 
   const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
   if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
@@ -172,6 +174,10 @@ router.post('/:id/interviews', protect, asyncHandler(async (req, res) => {
   const VALID_TYPES = ['phone', 'video', 'onsite', 'technical', 'panel']
   const { type, scheduledAt, duration, location, meetingLink, interviewer, notes } = req.body
   if (!VALID_TYPES.includes(type)) return res.status(400).json({ success: false, message: `type must be one of: ${VALID_TYPES.join(', ')}` })
+  if (location && location.length > 500) return res.status(400).json({ success: false, message: 'location must be 500 characters or fewer' })
+  if (meetingLink && meetingLink.length > 2000) return res.status(400).json({ success: false, message: 'meetingLink must be 2000 characters or fewer' })
+  if (interviewer && interviewer.length > 200) return res.status(400).json({ success: false, message: 'interviewer must be 200 characters or fewer' })
+  if (notes && notes.length > 5000) return res.status(400).json({ success: false, message: 'notes must be 5000 characters or fewer' })
 
   application.interviews.push({ type, scheduledAt, duration, location, meetingLink, interviewer, notes })
   application.status = 'interview'
