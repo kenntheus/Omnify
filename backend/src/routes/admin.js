@@ -48,6 +48,7 @@ router.put('/users/:id', asyncHandler(async (req, res) => {
 }))
 
 router.delete('/users/:id', asyncHandler(async (req, res) => {
+  if (req.params.id === req.user._id.toString()) return res.status(400).json({ success: false, message: 'Cannot delete your own account' })
   await User.findByIdAndDelete(req.params.id)
   res.json({ success: true, message: 'User deleted' })
 }))
