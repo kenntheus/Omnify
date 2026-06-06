@@ -21,6 +21,8 @@ router.post('/generate', protect, aiLimiter, asyncHandler(async (req, res) => {
   const { jobId, resumeId, tone = 'professional', title, company } = req.body
   const VALID_TONES = ['professional', 'enthusiastic', 'formal', 'creative']
   if (!VALID_TONES.includes(tone)) return res.status(400).json({ success: false, message: `tone must be one of: ${VALID_TONES.join(', ')}` })
+  if (title && title.length > 200) return res.status(400).json({ success: false, message: 'title must be 200 characters or fewer' })
+  if (company && company.length > 200) return res.status(400).json({ success: false, message: 'company must be 200 characters or fewer' })
 
   // Verify the resume belongs to the requesting user
   if (resumeId) {
