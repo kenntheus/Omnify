@@ -168,6 +168,8 @@ exports.changePassword = asyncHandler(async (req, res) => {
 
   user.password = newPassword
   user.refreshTokens = []
+  user.passwordResetToken = undefined
+  user.passwordResetExpires = undefined
   await user.save()
 
   const { token, refreshToken } = generateTokens(user._id)
