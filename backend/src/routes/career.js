@@ -202,6 +202,8 @@ router.get('/skill-recommendations', protect, asyncHandler(async (req, res) => {
 
 router.post('/chat', protect, asyncHandler(async (req, res) => {
   const { message, context } = req.body
+  if (!message?.trim()) return res.status(400).json({ success: false, message: 'message is required' })
+  if (message.length > 2000) return res.status(400).json({ success: false, message: 'message must be 2000 characters or fewer' })
   try {
     const aiResp = await axios.post(
       `${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/career-chat`,
