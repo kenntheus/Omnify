@@ -22,6 +22,7 @@ router.get('/users', asyncHandler(async (req, res) => {
   const { page = 1, limit = 20, search } = req.query
   const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100)
+  if (search && search.length > 200) return res.status(400).json({ success: false, message: 'search must be 200 characters or fewer' })
   const filter = {}
   if (search) {
     const escaped = escapeRegex(search)
