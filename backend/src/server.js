@@ -14,6 +14,15 @@ const dotenv = require('dotenv')
 // Load env variables
 dotenv.config()
 
+// Fail fast if required env vars are missing
+const REQUIRED_ENV = ['MONGODB_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET']
+if (process.env.NODE_ENV === 'production') REQUIRED_ENV.push('FRONTEND_URL')
+const missingEnv = REQUIRED_ENV.filter(k => !process.env[k])
+if (missingEnv.length > 0) {
+  console.error(`Missing required environment variables: ${missingEnv.join(', ')}`)
+  process.exit(1)
+}
+
 // Import routes
 const authRoutes = require('./routes/auth')
 const userRoutes = require('./routes/users')
