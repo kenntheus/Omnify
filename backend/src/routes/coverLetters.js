@@ -9,6 +9,8 @@ const CoverLetter = require('../models/CoverLetter')
 router.post('/generate', protect, asyncHandler(async (req, res) => {
   // jobId + resumeId for AI-linked generation; title + company for free-text flow
   const { jobId, resumeId, tone = 'professional', title, company } = req.body
+  const VALID_TONES = ['professional', 'enthusiastic', 'formal', 'creative']
+  if (!VALID_TONES.includes(tone)) return res.status(400).json({ success: false, message: `tone must be one of: ${VALID_TONES.join(', ')}` })
 
   // Resolve display values for the fallback template
   let jobTitle = title || '[Position]'
