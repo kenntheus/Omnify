@@ -44,13 +44,14 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       BACKEND_URL: http://backend:5000
       AI_SERVICE_URL: http://ai-service:8000
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
       EMAIL_HOST: ${EMAIL_HOST:-}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_USER: ${EMAIL_USER:-}
       EMAIL_PASS: ${EMAIL_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-Omnify <noreply@omnify.ai>}
-    volumes:
-      - uploads:/app/uploads
     depends_on:
       mongodb:
         condition: service_healthy
@@ -108,8 +109,6 @@ services:
 
 volumes:
   mongodb_data:
-    driver: local
-  uploads:
     driver: local
 
 networks:
