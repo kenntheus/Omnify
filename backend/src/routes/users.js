@@ -5,12 +5,11 @@ const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const User = require('../models/User')
+const cloudinary = require('../config/cloudinary')
+const { uploadStream } = require('../utils/cloudinaryUpload')
 
 const avatarUpload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/avatars/'),
-    filename: (req, file, cb) => cb(null, `${req.user._id}${path.extname(file.originalname)}`),
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
@@ -48,8 +47,15 @@ router.put('/preferences', protect, asyncHandler(async (req, res) => {
 
 router.post('/avatar', protect, avatarUpload.single('avatar'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' })
-  const avatarUrl = `/uploads/avatars/${req.file.filename}`
-  const user = await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl }, { new: true })
+
+  const result = await uploadStream(req.file.buffer, {
+    folder: 'omnify/avatars',
+    public_id: `avatar-${req.user._id}`,
+    overwrite: true,
+    transformation: [{ width: 400, height: 400, crop: 'fill', quality: 'auto' }],
+  })
+
+  const user = await User.findByIdAndUpdate(req.user._id, { avatar: result.secure_url }, { new: true })
   res.json({ success: true, data: user, message: 'Avatar updated' })
 }))
 
