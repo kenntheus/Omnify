@@ -72,6 +72,12 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: covers })
 }))
 
+router.get('/:id', protect, asyncHandler(async (req, res) => {
+  const cover = await CoverLetter.findOne({ _id: req.params.id, userId: req.user._id }).populate('jobId', 'title company')
+  if (!cover) return res.status(404).json({ success: false, message: 'Cover letter not found' })
+  res.json({ success: true, data: cover })
+}))
+
 router.put('/:id', protect, asyncHandler(async (req, res) => {
   const { content } = req.body
   if (!content?.trim()) return res.status(400).json({ success: false, message: 'content is required' })
