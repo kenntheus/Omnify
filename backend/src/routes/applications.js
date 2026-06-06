@@ -8,6 +8,7 @@ const { notify } = require('../utils/notify')
 // ─── Get all applications ─────────────────────────────────────
 router.get('/', protect, asyncHandler(async (req, res) => {
   const { status, page = 1, limit = 20 } = req.query
+  const safeLimit = Math.min(Math.max(1, Number(limit) || 20), 100)
   const filter = { userId: req.user._id }
   if (status && status !== 'all') filter.status = status
 
@@ -16,13 +17,13 @@ router.get('/', protect, asyncHandler(async (req, res) => {
     .populate('jobId')
     .populate('resumeId', 'fileName')
     .sort({ updatedAt: -1 })
-    .skip((Number(page) - 1) * Number(limit))
-    .limit(Number(limit))
+    .skip((Number(page) - 1) * safeLimit)
+    .limit(safeLimit)
 
   res.json({
     success: true,
     data: applications,
-    pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) },
+    pagination: { page: Number(page), limit: safeLimit, total, pages: Math.ceil(total / safeLimit) },
   })
 }))
 
@@ -75,6 +76,15 @@ router.get('/weekly-activity', protect, asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, data: results })
+}))
+
+// ─── Get application by ID ────────────────────────────────────
+router.get('/:id', protect, asyncHandler(async (req, res) => {
+  const application = await Application.findOne({ _id: req.params.id, userId: req.user._id })
+    .populate('jobId')
+    .populate('resumeId', 'fileName')
+  if (!application) return res.status(404).json({ success: false, message: 'Application not found' })
+  res.json({ success: true, data: application })
 }))
 
 // ─── Create application ───────────────────────────────────────
