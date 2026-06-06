@@ -1,9 +1,19 @@
 const express = require('express')
+const rateLimit = require('express-rate-limit')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const Application = require('../models/Application')
 const { notify } = require('../utils/notify')
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { success: false, message: 'Too many AI requests, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 // ─── Get all applications ─────────────────────────────────────
 router.get('/', protect, asyncHandler(async (req, res) => {
@@ -174,6 +184,7 @@ router.post('/:id/interviews', protect, asyncHandler(async (req, res) => {
   const VALID_TYPES = ['phone', 'video', 'onsite', 'technical', 'panel']
   const { type, scheduledAt, duration, location, meetingLink, interviewer, notes } = req.body
   if (!VALID_TYPES.includes(type)) return res.status(400).json({ success: false, message: `type must be one of: ${VALID_TYPES.join(', ')}` })
+  if (duration !== undefined && (typeof duration !== 'number' || isNaN(duration) || duration < 0 || duration > 480)) return res.status(400).json({ success: false, message: 'duration must be a number between 0 and 480 minutes' })
   if (location && location.length > 500) return res.status(400).json({ success: false, message: 'location must be 500 characters or fewer' })
   if (meetingLink && meetingLink.length > 2000) return res.status(400).json({ success: false, message: 'meetingLink must be 2000 characters or fewer' })
   if (interviewer && interviewer.length > 200) return res.status(400).json({ success: false, message: 'interviewer must be 200 characters or fewer' })
@@ -274,9 +285,21 @@ router.post('/manual', protect, asyncHandler(async (req, res) => {
 }))
 
 // ─── Auto-apply via AI browser automation ────────────────────
-router.post('/auto-apply', protect, asyncHandler(async (req, res) => {
+router.post('/auto-apply', protect, aiLimiter, asyncHandler(async (req, res) => {
   const { jobId, resumeId, coverLetter, customAnswers } = req.body
   if (!jobId) return res.status(400).json({ success: false, message: 'jobId is required' })
+
+  if (customAnswers !== undefined) {
+    if (typeof customAnswers !== 'object' || Array.isArray(customAnswers)) {
+      return res.status(400).json({ success: false, message: 'customAnswers must be an object' })
+    }
+    const keys = Object.keys(customAnswers)
+    if (keys.length > 50) return res.status(400).json({ success: false, message: 'customAnswers must have 50 entries or fewer' })
+    for (const k of keys) {
+      if (!/^[\w-]{1,100}$/.test(k)) return res.status(400).json({ success: false, message: `customAnswers key "${k}" contains invalid characters` })
+      if (typeof customAnswers[k] !== 'string' || customAnswers[k].length > 1000) return res.status(400).json({ success: false, message: `customAnswers value for "${k}" must be a string of 1000 characters or fewer` })
+    }
+  }
 
   const Job = require('../models/Job')
   const Resume = require('../models/Resume')
