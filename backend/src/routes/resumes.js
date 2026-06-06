@@ -1,25 +1,18 @@
 const express = require('express')
 const multer = require('multer')
-const { notify } = require('../utils/notify')
 const path = require('path')
-const fs = require('fs')
 const router = express.Router()
 const { protect } = require('../middleware/auth')
 const { asyncHandler } = require('../middleware/errorHandler')
 const Resume = require('../models/Resume')
+const cloudinary = require('../config/cloudinary')
+const { uploadStream } = require('../utils/cloudinaryUpload')
+const { notify } = require('../utils/notify')
 const axios = require('axios')
 
-// ─── Multer config ────────────────────────────────────────────
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/resumes/'),
-  filename: (req, file, cb) => {
-    const unique = `${req.user._id}-${Date.now()}${path.extname(file.originalname)}`
-    cb(null, unique)
-  },
-})
-
+// ─── Multer (memory storage — uploaded to Cloudinary) ─────────
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedMimes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
@@ -35,10 +28,19 @@ router.post('/upload', protect, upload.single('resume'), asyncHandler(async (req
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' })
 
   const fileType = req.file.mimetype.includes('pdf') ? 'pdf' : 'docx'
+  const publicId = `resume-${req.user._id}-${Date.now()}`
+
+  const result = await uploadStream(req.file.buffer, {
+    folder: 'omnify/resumes',
+    public_id: publicId,
+    resource_type: 'raw',
+  })
+
   const resume = await Resume.create({
     userId: req.user._id,
     fileName: req.file.originalname,
-    fileUrl: `/uploads/resumes/${req.file.filename}`,
+    fileUrl: result.secure_url,
+    cloudinaryPublicId: result.public_id,
     fileType,
     fileSize: req.file.size,
     isDefault: false,
@@ -73,11 +75,9 @@ router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
 
   try {
-    // Send the full absolute URL so the AI service can download the file
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000'
     const aiResponse = await axios.post(
       `${process.env.AI_SERVICE_URL || 'http://localhost:8000'}/analyze-resume`,
-      { resumeUrl: `${backendUrl}${resume.fileUrl}`, resumeType: resume.fileType },
+      { resumeUrl: resume.fileUrl, resumeType: resume.fileType },
       { timeout: 60000 }
     )
 
@@ -93,7 +93,7 @@ router.post('/:id/analyze', protect, asyncHandler(async (req, res) => {
     })
 
     res.json({ success: true, data: resume, message: 'Resume analyzed successfully' })
-  } catch (aiErr) {
+  } catch {
     // Fallback mock analysis if AI service is down
     resume.analysis = {
       atsScore: 87,
@@ -140,21 +140,24 @@ router.put('/:id/default', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, data: resume, message: 'Default resume updated' })
 }))
 
-// ─── Serve resume file (authenticated) ───────────────────────
+// ─── Serve resume file (redirect to Cloudinary URL) ──────────
 router.get('/:id/file', protect, asyncHandler(async (req, res) => {
   const resume = await Resume.findOne({ _id: req.params.id, userId: req.user._id })
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
-
-  const filePath = path.join(__dirname, '../../uploads/resumes', path.basename(resume.fileUrl))
-  if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'File not found' })
-
-  res.sendFile(filePath)
+  res.redirect(resume.fileUrl)
 }))
 
 // ─── Delete resume ────────────────────────────────────────────
 router.delete('/:id', protect, asyncHandler(async (req, res) => {
   const resume = await Resume.findOneAndDelete({ _id: req.params.id, userId: req.user._id })
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
+
+  if (resume.cloudinaryPublicId) {
+    try {
+      await cloudinary.uploader.destroy(resume.cloudinaryPublicId, { resource_type: 'raw' })
+    } catch { /* ignore Cloudinary cleanup errors */ }
+  }
+
   res.json({ success: true, message: 'Resume deleted' })
 }))
 
