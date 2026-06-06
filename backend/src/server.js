@@ -80,7 +80,7 @@ app.use(hpp())
 
 // Compression & logging
 app.use(compression())
-if (process.env.NODE_ENV === 'development') app.use(morgan('dev'))
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
 // Avatars are public; resumes require auth (served via /api/resumes/:id/file)
 app.use('/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')))
