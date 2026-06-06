@@ -163,6 +163,9 @@ router.put('/:id/default', protect, asyncHandler(async (req, res) => {
 router.get('/:id/file', protect, asyncHandler(async (req, res) => {
   const resume = await Resume.findOne({ _id: req.params.id, userId: req.user._id })
   if (!resume) return res.status(404).json({ success: false, message: 'Resume not found' })
+  if (!resume.fileUrl?.startsWith('https://res.cloudinary.com/')) {
+    return res.status(500).json({ success: false, message: 'File URL is invalid' })
+  }
   res.redirect(resume.fileUrl)
 }))
 
