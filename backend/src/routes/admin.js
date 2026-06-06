@@ -152,30 +152,32 @@ router.post('/sync-jobs', asyncHandler(async (req, res) => {
 
   let upserted = 0
   for (const job of all) {
+    // Skip records missing required fields
+    if (!job.id || typeof job.title !== 'string' || !job.title.trim() || typeof job.company_name !== 'string' || !job.company_name.trim()) continue
     try {
       await Job.findOneAndUpdate(
         { sourceId: `remotive-${job.id}` },
         {
-          title: job.title,
-          company: { name: job.company_name, logo: job.company_logo, industry: job.category },
-          location: job.candidate_required_location || 'Worldwide',
+          title: job.title.trim().substring(0, 200),
+          company: { name: job.company_name.trim().substring(0, 200), logo: typeof job.company_logo === 'string' ? job.company_logo.substring(0, 500) : undefined, industry: job.category },
+          location: (job.candidate_required_location || 'Worldwide').substring(0, 200),
           remote: 'remote',
           description: stripHtml(job.description),
-          skills: (job.tags || []).slice(0, 10),
-          tags: (job.tags || []).slice(0, 10),
+          skills: (job.tags || []).filter(t => typeof t === 'string').slice(0, 10).map(t => t.substring(0, 100)),
+          tags: (job.tags || []).filter(t => typeof t === 'string').slice(0, 10).map(t => t.substring(0, 100)),
           type: { full_time: 'full-time', part_time: 'part-time', contract: 'contract', freelance: 'freelance' }[job.job_type] || 'full-time',
           source: 'scraped',
-          sourceUrl: job.url,
+          sourceUrl: typeof job.url === 'string' ? job.url.substring(0, 2000) : null,
           sourceId: `remotive-${job.id}`,
-          postedAt: new Date(job.publication_date),
+          postedAt: job.publication_date ? new Date(job.publication_date) : new Date(),
           isActive: true,
           experience: 'Not specified',
         },
-        { upsert: true, new: true, runValidators: false }
+        { upsert: true, new: true, runValidators: true }
       )
       upserted++
     } catch {
-      // skip invalid jobs
+      // skip jobs that still fail validation
     }
   }
 
