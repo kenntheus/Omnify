@@ -19,7 +19,7 @@ const tabs = [
   { id: 'preferences', label: 'Preferences', icon: Palette },
 ]
 
-const notifItems: { key: keyof Omit<UserPreferences, 'theme'>; title: string; desc: string }[] = [
+const notifItems: { key: 'jobAlerts' | 'emailNotifications' | 'pushNotifications' | 'weeklyDigest'; title: string; desc: string }[] = [
   { key: 'jobAlerts', title: 'New job matches', desc: 'Get notified when new jobs match your profile' },
   { key: 'emailNotifications', title: 'Application updates', desc: 'Status changes on your applications' },
   { key: 'pushNotifications', title: 'Interview reminders', desc: '24 hours before scheduled interviews' },
